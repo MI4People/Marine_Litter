@@ -6,9 +6,9 @@ This project focuses on addressing the environmental issue of marine litter by l
 
 ## Repository Structure
 
--**/docs** - Contains all project instructions and complete documentation.
--**/diagrams** - UML diagrams and other architectural representations.
--**/src** - Source code of the project.
+- **/docs** - Contains all project instructions and complete documentation.
+- **/diagrams** - UML diagrams and other architectural representations.
+- **/src** - Source code of the project.
 
 ## Branching Strategy
 
