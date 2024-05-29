@@ -16,3 +16,37 @@ We use a specific naming convention for branches to maintain clarity:
 
 - **Feature-Branches**: `feature/<featurename>_<YYYYMMDD>`
 - **Bugfix-Branches**: `bugfix/<bugname>_<YYYYMMDD>`
+
+
+## Flow-Diagram for Automation
+
+```mermaid
+graph TD
+    A[Cloud Scheduler] --> B[Download Function - Cloud Function 1]
+    B --> |Store Raw Images| C[Google Cloud Storage - GCS]
+    B --> D[BigQuery - Metadata & Config]
+    E[Config File - Time & Region] --> B 
+    C --> F[Pub/Sub Topic]
+    F --> G[Trigger AI Model - Cloud Function 2]
+    G --> H[AI Platform - Model Execution]
+    H --> |Store Prediction Layers| I[Google Cloud Storage - GCS]
+    I --> J[Post-Processing - Cloud Function 3]
+    J --> |Load Prediction Layers| K[Google Earth Engine - Visualization]
+    J -->|Delete Raw Images| C
+```
+
+
+## Flow-Diagram with Webinterface
+```mermaid
+graph TD
+    A[Google Earth Engine - Web Interface] --> B[Download Function - Cloud Function 1]
+    B --> |Store Raw Images| C[Google Cloud Storage - GCS]
+    B --> D[BigQuery - Metadata & Config]
+    C --> F[Pub/Sub Topic]
+    F --> G[Trigger AI Model - Cloud Function 2]
+    G --> H[AI Platform - Model Execution]
+    H --> |Store Prediction Layers| I[Google Cloud Storage - GCS]
+    I --> J[Post-Processing - Cloud Function 3]
+    J --> |Load Prediction Layers| A
+    J -->|Delete Raw Images| C
+```
