@@ -30,9 +30,10 @@ graph TD
     F --> G[Trigger AI Model - Cloud Function 2]
     G --> H[AI Platform - Model Execution]
     H --> |Store Prediction Layers| I[Google Cloud Storage - GCS]
-    I --> J[Post-Processing - Cloud Function 3]
-    J --> |Load Prediction Layers| K[Google Earth Engine - Visualization]
-    J -->|Delete Raw Images| C
+    I --> J[Pub/Sub Topic]
+    J --> K[Post-Processing - Cloud Function 3]
+    K --> |Load Prediction Layers| L[Google Earth Engine - Visualization]
+    L -->|Delete Raw Images| C
 ```
 
 
@@ -46,7 +47,11 @@ graph TD
     F --> G[Trigger AI Model - Cloud Function 2]
     G --> H[AI Platform - Model Execution]
     H --> |Store Prediction Layers| I[Google Cloud Storage - GCS]
-    I --> J[Post-Processing - Cloud Function 3]
-    J --> |Load Prediction Layers| A
-    J -->|Delete Raw Images| C
+    I --> J[Pub/Sub Topic]
+    J --> K[Post-Processing - Cloud Function 3]
+    K --> |Load Prediction Layers| A
+    K -->|Delete Raw Images| C
+    L[Choose date and area] --> A
+    A <-.-> |Check for historical data for the area| D
+    A <-.-> |Possible to load historical prediction layers?| I
 ```
