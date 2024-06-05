@@ -4,6 +4,21 @@
 
 This project focuses on addressing the environmental issue of marine litter by leveraging artificial intelligence. Our AI model is designed to detect trash in the ocean using satellite imagery. By analyzing these images, the model identifies areas heavily impacted by marine debris, enabling targeted clean-up efforts and contributing to marine conservation. This innovative approach aims to enhance the efficiency of environmental protection measures, providing a scalable solution to one of the pressing challenges our oceans face today. 
 
+## Additional Information
+- Training data set is limited available and manually curated [MARIDA](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0262247) - 1381 images 256x256 pixel-sized labeled patches from images with resolution between 10 and 20m
+- It use the Sentinel-2 satellite images (taking every 2-5 days an image of the same position)
+- The satellite provides 13 bands with a resolution from 10 to 60 m per pixel ([Bands](https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-2-msi/resolutions/spatial))
+- By adding more databases like ship position and enhancing the segmentation of the labeled data from [MARIDA](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0262247) an Unet++ model reached ~86 % accuracy. (Paper)
+- Model and code is publicly available ([Code](https://github.com/MarcCoru/marinedebrisdetector))
+- This model was used to create prediction layer images (locally) for few regions at different timepoints
+
+## Current Prototyp
+- To make these prediction images available, [Google Earth Engine](https://earthengine.google.com/) was used to create a free user interface publicly available
+- GEE can directly access images from satellite and layer can be uploaded manually or with GCP
+- The code is written in JavaScript
+- Prototype is already available ([MI4People-MarineLitter](https://mi4people.projects.earthengine.app/view/marine-litter)) and highlights in red potential marine litter
+
+
 ## Repository Structure
 
 - **/docs** - Contains all project instructions and complete documentation.
