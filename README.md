@@ -48,7 +48,7 @@ graph TD
     I --> J[Pub/Sub Topic]
     J --> K[Post-Processing - Cloud Function 3]
     K --> |Load Prediction Layers| L[Google Earth Engine - Visualization]
-    L -->|Delete Raw Images| C
+    K -->|Delete Raw Images| C
 ```
 
 
