@@ -1,0 +1,5 @@
+Prerequisites:
+
+Software: GCP SDK, Python, Python Editor (Jupyter, PyCharm, etc.)
+Permissions: GCP Editor, Google Earth Engine Editor, API Key
+Connect GCP with GEE: https://developers.google.com/earth-engine/guides/python_install#package-importgit 
