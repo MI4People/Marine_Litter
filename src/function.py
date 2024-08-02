@@ -12,15 +12,11 @@ ee.Initialize()
 print("Earth Engine is initialized.")
 
 
-def geojson_to_ee(geojson_obj):
-    coordinates = geojson_obj['geometry']['coordinates']
-    return ee.Geometry.MultiPolygon(coordinates)
-
 coordinates = data['features'][0]['geometry']['coordinates']
 aoi = ee.Geometry.MultiPolygon(coordinates)
 
 # Filter Sentinel-2 Surface Reflectance image collection for given date range and area.
-collection = (ee.ImageCollection('COPERNICUS/S2_SR')
+collection = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
               .filterDate('2019-07-15', '2019-07-20')
               .filterBounds(aoi)
               .first())
