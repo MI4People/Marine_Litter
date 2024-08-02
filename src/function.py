@@ -11,13 +11,13 @@ ee.Authenticate()
 ee.Initialize()
 print("Earth Engine is initialized.")
 
-print(ee.String('Hello from the Earth Engine servers!').getInfo())
-# Test with a simple Earth Engine operation
-image = ee.Image('srtm90_v4')
-print(image.getInfo())
+
+def geojson_to_ee(geojson_obj):
+    coordinates = geojson_obj['geometry']['coordinates']
+    return ee.Geometry.MultiPolygon(coordinates)
 
 coordinates = data['features'][0]['geometry']['coordinates']
-aoi = ee.Geometry.Polygon(coordinates)
+aoi = ee.Geometry.MultiPolygon(coordinates)
 
 # Filter Sentinel-2 Surface Reflectance image collection for given date range and area.
 collection = (ee.ImageCollection('COPERNICUS/S2_SR')
