@@ -1,137 +1,119 @@
 # install essential packages
 # - pip install earthengine-api: for connection with GEE
+# - pip install earthengine-api --upgrade (optional)
+# - pip install marinedebrisdetector : model installation
+
+
 # import essential packages, classes
 import ee
 import json 
+import time
+import requests
 
-# authenticate with GEE account
-# TODO if the authentication is successful, then skip
+
+# authenticate with GCP account
 ee.Authenticate()
-# Initialize Earth Engine
-ee.Initialize()
-print("Earth Engine is initialized.")
+# ee.Authenticate(force=True)
 
-# Reading JSON from a file
-# TODO define coordinates
-# with open('coordinates.json', 'r') as file:
-#     data = json.load(file) 
-
-# coordinates = data['features'][0]['geometry']['coordinates']
-
-# example to test
-coordinates = [
-    [
-        [
-            [-122.292, 37.901],
-            [-122.292, 37.90],
-            [-122.29, 37.90],
-            [-122.29, 37.901],
-            [-122.292, 37.901]
-        ]
-    ]
-]
-aoi = ee.Geometry.MultiPolygon(coordinates)
-
-# Filter Sentinel-2 Surface Reflectance image collection for given date range and area.
-# collection = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-#               .filterDate('2019-07-15', '2019-07-20')
-#               .filterBounds(aoi)
-#               .first())
-# true_color_image = collection.normalizedDifference(['B4', 'B3', 'B2']).rename('True color')
-
-# helf function to count image collection
-def count_images_in_collection(collection):
-
-    def count_images_from_start(start, num):
-
-        # Get a subset of the collection
-        subset = collection.toList(num, start)
-        return subset.size().getInfo()
-
-    total_images = 0
-    batch_size = 100  # Number of images to process per batch
-
-    # Try to count images in batches until no more images are found
-    start_index = 0
-    while True:
-        count = count_images_from_start(start_index, batch_size)
-        if count == 0:
-            break
-        total_images += count
-        start_index += batch_size
-
-    return total_images
-
-# helf function to count image size
-def estimate_image_size(image):
+# initialize Earth Engine
+try:
+    ee.Initialize(project = "test-project-422119") #cloud_project_id
+    print("Earth Engine is initialized.")
+except ee.EEException as e:
+    print("The Earth Engine API failed to initialize:", e)
+   
+# Reading coordinates from JSON
+with open('src/coordinates.json', 'r') as file:
+    data = json.load(file) 
     
-    # Retrieve image properties
-    image_info = image.getInfo()
-    
-    # Get dimensions and number of bands
-    width = image_info['bands'][0]['dimensions'][0]
-    height = image_info['bands'][0]['dimensions'][1]
-    num_bands = len(image_info['bands'])
-    
-    # Sentinel-2 images are 16-bit per pixel
-    bit_depth = 16
-    bytes_per_pixel = bit_depth / 8
-    
-    # Calculate size of one image in bytes
-    total_pixels = width * height
-    image_size_bytes = total_pixels * num_bands * bytes_per_pixel
-    
-    # Convert bytes to megabytes
-    image_size_mb = image_size_bytes / (1024 * 1024)
-    
-    return image_size_mb
+coordinates = data['features'][0]['geometry']['coordinates']
 
-# get the imge collection size
-def filter_sentinel2_image(coordinates, date_from, date_to):
+# retrive image collection from aoi and given time intervall
+def get_image_collection(coordinates, date_from, date_to):
+    
     aoi = ee.Geometry.MultiPolygon(coordinates)
+   # aoi = ee.Geometry.Polygon(coordinates)
     collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(aoi).filterDate(ee.Date(date_from), ee.Date(date_to))
-    
-    # Example usage
-    total_images = count_images_in_collection(collection)
-    print('Number of images:', total_images)
-    
-    first_image = collection.first()
+    return collection, aoi
 
-    # # Define visualization parameters
-    # TODO which band do we need for modeling -> image processing
-    # vis_params = {
-    #     'min': 0,
-    #     'max': 1,
-    #     'palette': ['green', 'blue', 'red']
-    # }
+# export single image to oneDrive
+def export_image_toDrive(image, aoi, folder):
+    image_id = image.id().getInfo()
+    description = "Original_" + image_id
 
-    # # Create a visualized image
-    # visualized_true_color_image = first_image.visualize(**vis_params)
+    # cast all bands datatypes to Uint32
+    image_uint32 = image.toUint32() 
 
-    # # Generate a download URL
-    # url = visualized_true_color_image.getDownloadURL({
-    #     'scale': 30,
-    #     'crs': 'EPSG:4326',
-    #     'region': aoi.toGeoJSONString(),
-    #     'format': 'png'
-    # })
+    # dowload to oneDrive
+    task = ee.batch.Export.image.toDrive(
+        image = image_uint32,
+        description = description ,
+        folder = folder,
+        region = aoi,
+        scale = 10, # 10 meter/Pixel
+        fileFormat='GeoTIFF'
+    )
 
-    # print("Download URL:", url)
+    task.start()
+        # Wait for the task to complete
+    print('Exporting image to Google Drive. This may take some time...')
 
-    size_mb = estimate_image_size(first_image)
-    print(f'Estimated size of one image: {size_mb:.2f} MB')
+    if task.status()['state'] in ['FAILED']:
+        print("error")
 
-    size_collection = total_images * size_mb
-    print('Size of image Collection:', size_collection)
+    while task.status()['state'] in ['READY', 'RUNNING']:
+        time.sleep(30)  # wait for 30 seconds before checking the status again
+        print('Status:', task.status())
 
-    # throws errors because of limited memory
-    # num_images = collection.size().getInfo()
-    # print('Number of images:', num_images)
-    # return num_images   
+    print('Export completed.')
+
+# export single image to gcp cloudStorage
+def export_image_toStorage(image, aoi, bucket):
+    image_id = image.id().getInfo()
+    description = "Original_" + image_id
+
+    # cast all bands datatypes to Uint32
+    image_uint32 = image.toUint32() 
+    task = ee.batch.Export.image.toCloudStorage(
+        image = image_uint32,
+        description = description,
+        bucket = bucket,
+        fileNamePrefix = 'prefix',
+        region = aoi,
+        scale = 10, # 10 meter
+        fileFormat='GeoTIFF'
+    )
+
+    task.start()
+        # Wait for the task to complete
+    print('Exporting image to Google CloudStorage. This may take some time...')
+
+    if task.status()['state'] in ['FAILED']:
+        print("error")
+
+    while task.status()['state'] in ['READY', 'RUNNING']:
+        time.sleep(30)  # wait for 30 seconds before checking the status again
+        print('Status:', task.status())
+
+    print('Export completed.')
+
+# export all images from collection
+def export_imageCollection(collection, aoi, storage_type, save_location):
+    image_ids = collection.aggregate_array("system:id").getInfo()
+    for image_id in image_ids:
+        image = ee.image(image_id)
+        if storage_type.lower() == "drive":
+           export_image_toDrive(image, aoi, save_location)
+        else: 
+            export_image_toStorage(image, aoi, save_location)
+
 
 # test method
-filter_sentinel2_image(coordinates, '2019-07-15', '2019-07-20')
+collection, aoi = get_image_collection(coordinates, '2019-07-15', '2019-07-16')
+count = collection.size().getInfo()
+print(f"There are {count} images in the collection")
+# export_image_toDrive(collection.first(), aoi, 'Original_Images')
+# export_imageCollection(collection, aoi, "Drive", 'Original_Images')
 
-# TODO image processing
 
 
