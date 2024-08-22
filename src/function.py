@@ -2,13 +2,16 @@
 # - pip install earthengine-api: for connection with GEE
 # - pip install earthengine-api --upgrade (optional)
 # - pip install marinedebrisdetector : model installation
+# - pip install rasterio
 
 
 # import essential packages, classes
 import ee
 import json 
 import time
-import requests
+import rasterio
+import csv
+from datetime import datetime
 
 
 # authenticate with GCP account
@@ -107,6 +110,22 @@ def export_imageCollection(collection, aoi, storage_type, save_location):
         else: 
             export_image_toStorage(image, aoi, save_location)
 
+# save metadata (date, coordinates) in csv
+def extract_metadata(tiff_file):
+    with rasterio.open(tiff_file) as src:
+        date = src.tags().get('TIFFTAG_DATETIME', 'Unknown Date')
+        bounds = src.bounds
+        coordinates = (bounds.left, bounds.bottom, bounds.right, bounds.top)
+    return date, coordinates
+
+def save_metadata_to_csv(csv_path, metadata):
+    with open(csv_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Filename', 'Date', 'Min X', 'Min Y', 'Max X', 'Max Y'])
+        
+        for entry in metadata:
+            filename, date, coords = entry
+            writer.writerow([filename, date] + list(coords))
 
 # test method
 collection, aoi = get_image_collection(coordinates, '2019-07-15', '2019-07-16')
@@ -114,6 +133,13 @@ count = collection.size().getInfo()
 print(f"There are {count} images in the collection")
 # export_image_toDrive(collection.first(), aoi, 'Original_Images')
 # export_imageCollection(collection, aoi, "Drive", 'Original_Images')
+
+# TODO to test
+# metadata = []
+# for tiff_file in tiff_files:
+#     date, coordinates = extract_metadata(tiff_file)
+#     metadata.append((tiff_file, date, coordinates))
+# save_metadata_to_csv("csv_path", metadata)
 
 
 
