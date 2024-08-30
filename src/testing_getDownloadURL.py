@@ -54,7 +54,7 @@ print(f"Download URL: {url}")
 # Download the image
 response = requests.get(url)
 if response.status_code == 200:
-    # The Download URL generates a Zip-File containing tiff-files of every single band selectede
+    # The Download URL generates a Zip-File containing tiff-files of every single band selected
     with open("sentinel2_rgb.zip", "wb") as f:
         f.write(response.content)
     print("Image downloaded successfully as sentinel2_rgb.zip")
