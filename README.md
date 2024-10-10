@@ -42,36 +42,9 @@ We use a specific naming convention for branches to maintain clarity:
 
 ```mermaid
 graph TD
-    A[Cloud Scheduler] --> B[Download Function - Cloud Function 1]
-    B --> |Store Raw Images| C[Google Cloud Storage - GCS]
-    B --> D[history.csv - Metadata & Config]
-    E[Config File - Time & Region] --> B 
-    C --> F[Pub/Sub Topic]
-    F --> G[Trigger AI Model - Cloud Function 2]
-    G --> H[AI Platform - Model Execution]
-    H --> |Store Prediction Layers| I[Google Cloud Storage - GCS]
-    I --> J[Pub/Sub Topic]
-    J --> K[Post-Processing - Cloud Function 3]
-    K --> |Load Prediction Layers| L[Google Earth Engine - Visualization]
-    K -->|Delete Raw Images| C
-```
-
-
-## Flow-Diagram with Webinterface
-```mermaid
-graph TD
-    A[Google Earth Engine - Web Interface] --> B[Download Function - Cloud Function 1]
-    B --> |Store Raw Images| C[Google Cloud Storage - GCS]
-    B --> D[history.csv - Metadata & Config]
-    C --> F[Pub/Sub Topic]
-    F --> G[Trigger AI Model - Cloud Function 2]
-    G --> H[AI Platform - Model Execution]
-    H --> |Store Prediction Layers| I[Google Cloud Storage - GCS]
-    I --> J[Pub/Sub Topic]
-    J --> K[Post-Processing - Cloud Function 3]
-    K --> |Load Prediction Layers| A
-    K -->|Delete Raw Images| C
-    L[Choose date and area] --> A
-    A <-.-> |Check for historical data for the area| D
-    A <-.-> |Possible to load historical prediction layers?| I
+    A[Cron job] --> B[Download images from today]
+    B --> |Store raw images in images/input| C[Run marinederbisdetector in parallel]
+    B --> D[stored.json - dates & filenames] --> G
+    C --> |Store predictions in images/output| F[Transfer predicted images to GCS]
+    F --> G[Show predictions with GEE]
 ```
