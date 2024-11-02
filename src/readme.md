@@ -1,1 +1,1 @@
-
+Announcement: On November 13, 2024, all users will need to use a Cloud project in order to access Earth Engine. After this date, continued individual access without a Cloud project will require an exception.
