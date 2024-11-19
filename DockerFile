@@ -16,12 +16,13 @@ COPY . /marine_litter
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables for the UP42 credentials and config path
+# These can be overwritten when running the container (e.g., via docker run -e DATE_FROM="..." -e DATE_TO="...")
 ENV UP42_CONFIG_PATH /marine_litter/src/.up42/credentials.json
 ENV CONFIG_PATH /marine_litter/src/resources/config.json
 ENV DATE_FROM ""
 ENV DATE_TO ""
 
-# Expose necessary ports (optional for APIs)
+# Expose necessary ports (optional for APIs or web servers, comment out if not needed)
 EXPOSE 8080
 
 # Default command to run the download script
