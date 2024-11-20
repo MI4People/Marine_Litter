@@ -74,7 +74,7 @@ def download_from_up42(date_from, date_to, config_path):
 
     # Place order and download assets
     order_parameters = catalog.construct_order_parameters(
-        product_id=product_id,
+        data_product_id=product_id,
         image_id=search_results_df.iloc[0]["id"],
         aoi=geometry,
     )
