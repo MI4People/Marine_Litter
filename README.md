@@ -41,10 +41,13 @@ We use a specific naming convention for branches to maintain clarity:
 ## Flow-Diagram for Automation
 
 ```mermaid
-graph TD
-    A[Cron job] --> B[Download images from today]
-    B --> |Store raw images in images/input| C[Run marinederbisdetector in parallel]
-    B --> D[stored.json - dates & filenames] --> G
-    C --> |Store predictions in images/output| F[Transfer predicted images to GCS]
-    F --> G[Show predictions with GEE]
+flowchart TD
+    A["Cron job"] --> B["Sent order to UP42"]
+    B --> n1["Download images from Up42 when ready (10-15 min after order)"] -- Store raw images in images --> C
+    C["Run marinederbisdetector in parallel"] -- Store predictions in images/output --> F["Convert predicted images for online use"]
+    F --> n2["Transfer _prediction.tif with dates.json to GCS"]
+    C --> D["save dates &amp; filenames _prediction.tif in dates.json"]
+    D --> F
+    n2 --> n3["Delete original images &amp; pedictions"]
+    n3 --> G["Show predictions with GEE"]
 ```
