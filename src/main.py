@@ -26,7 +26,7 @@ def main():
     # Environment variables for download
     os.environ["DATE_FROM"] = "2025-01-01"
     os.environ["DATE_TO"] = "2025-01-07"
-    os.environ["CONFIG_PATH"] = "src/config/config.json"
+    os.environ["CONFIG_PATH"] = "src/resources/config.json"
 
     # Execute scripts in sequence
     logging.info("Starting workflow...")
