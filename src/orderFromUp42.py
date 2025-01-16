@@ -80,13 +80,27 @@ def download_from_up42(date_from, date_to, config_path):
     )
 
     order = catalog.place_order(order_parameters)
+
+    # This is a quick hack to test order fulfillment and downloading order as soon as it is fulfilled
+    # We get a console output status report every 10 seconds
+    print(order.track_status(report_time=10))
+    while(order.is_fulfilled == False):
+        time.sleep(10)
+        
     if order.status == "FULFILLED":
         assets = order.get_assets()
+        print("--before assets download attempt--")
+        assets.download(
+            output_directory="src/resources/download_images",
+            unpacking=False,
+        )
+        print("--after assets download attempt--")
         if not assets:
             logging.info("No assets found in the order.")
             return
 
         output_directory = "src/resources/download_images"
+        print("--starting concurrent jobs--")
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(download_asset, asset, output_directory) for asset in assets]
             show_progress(futures)
