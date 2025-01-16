@@ -90,10 +90,13 @@ def download_from_up42(date_from, date_to, config_path):
     if order.status == "FULFILLED":
         assets = order.get_assets()
         print("--before assets download attempt--")
-        assets.download(
+        
+        for asset in assets:
+            asset.download(
             output_directory="src/resources/download_images",
             unpacking=False,
         )
+            
         print("--after assets download attempt--")
         if not assets:
             logging.info("No assets found in the order.")
