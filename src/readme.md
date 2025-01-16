@@ -12,6 +12,14 @@ This project allows you to download satellite images using UP42 API and process 
 - UP42 account and credentials, credentials should be saved in `src/.up42/credentials.json`
 `e.g. {username:"username", password:"pwd"}`
 
+### Optional testing environment with conda
+
+Run the following in the terminal, preferably within your repo path:
+1. conda create --name marine_litter
+2. conda install -c conda-forge up42-py
+3. pip install marinedebrisdetector
+4. make sure, that the file src/.up42/credentials.json exists, and is properly set with the correct credentials.
+   
 ### Environment Variables
 
 - `DATE_FROM` - The start date for the satellite images (format: YYYY-MM-DD).
