@@ -18,14 +18,14 @@ def execute_script(script_path, args=""):
 def main():
     # Define script paths with correct relative paths
     scripts = {
-        "download": "src/downloadFromUp42.py",
+        "download": "src/orderFromUp42.py",
         "predict": "src/prediction.py",
         "convert": "src/convert.py"
     }
 
     # Environment variables for download
-    os.environ["DATE_FROM"] = "2025-01-01"
-    os.environ["DATE_TO"] = "2025-01-07"
+    os.environ["DATE_FROM"] = "2023-01-01"
+    os.environ["DATE_TO"] = "2023-12-31"
     os.environ["CONFIG_PATH"] = "src/resources/config.json"
 
     # Execute scripts in sequence
