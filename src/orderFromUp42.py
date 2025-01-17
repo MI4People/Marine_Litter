@@ -82,10 +82,10 @@ def download_from_up42(date_from, date_to, config_path):
     order = catalog.place_order(order_parameters)
 
     # This is a quick hack to test order fulfillment and downloading order as soon as it is fulfilled
-    # We get a console output status report every 10 seconds
-    print(order.track_status(report_time=10))
+    # We get a console output status report every 120 seconds
+    print(order.track_status(report_time=120))
     while(order.is_fulfilled == False):
-        time.sleep(10)
+        time.sleep(120)
         
     if order.status == "FULFILLED":
         assets = order.get_assets()
