@@ -15,7 +15,7 @@ This project allows you to download satellite images using UP42 API and process 
 ### Optional testing environment with conda
 
 Run the following in the terminal, preferably within your repo path:
-1. conda create --name marine_litter (python version whould also be specified)
+1. conda create --name marine_litter (python version could also be specified)
 2. conda activate marine_litter
 3. conda install -c conda-forge gdal
 4. conda install -c conda-forge up42-py
