@@ -1,4 +1,4 @@
 marinedebrisdetector
 up42-py==1.0.0
-rasterio==1.2.10
+# rasterio==1.2.10 (is already in the requirements of marinedebrisdetector)
 concurrent==1.0
