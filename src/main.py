@@ -18,19 +18,19 @@ def execute_script(script_path, args=""):
 def main():
     # Define script paths with correct relative paths
     scripts = {
-        "download": "src/orderFromUp42.py",
+        "order": "src/orderFromUp42.py",
         "predict": "src/prediction.py",
         "convert": "src/convert.py"
     }
 
-    # Environment variables for download
+    # Environment variables for order
     os.environ["DATE_FROM"] = "2023-01-01"
-    os.environ["DATE_TO"] = "2023-12-31"
+    os.environ["DATE_TO"] = "2023-01-20"
     os.environ["CONFIG_PATH"] = "src/resources/config.json"
 
     # Execute scripts in sequence
     logging.info("Starting workflow...")
-    execute_script(scripts["download"])
+    execute_script(scripts["order"])
     execute_script(scripts["predict"])
     execute_script(scripts["convert"])
     logging.info("Workflow completed successfully.")

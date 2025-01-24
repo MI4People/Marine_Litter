@@ -5,6 +5,10 @@ import concurrent.futures
 import time
 import up42
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.zip_processing import process_zip
+
 logging.basicConfig(level=logging.INFO)
 
 def download_asset(asset, output_directory):
@@ -96,13 +100,25 @@ def download_from_up42(date_from, date_to, config_path):
             output_directory="src/resources/download_images",
             unpacking=False,
         )
-            
+        
         print("--after assets download attempt--")
         if not assets:
             logging.info("No assets found in the order.")
             return
 
+        # Process the downloaded ZIP files
         output_directory = "src/resources/download_images"
+        json_file_path = "src/resources/dates.json"
+
+        for file in os.listdir(output_directory):
+            if file.endswith(".zip"):
+                zip_file_path = os.path.join(output_directory, file)
+                try:
+                    process_zip(zip_file_path, json_file_path)
+                    logging.info(f"Successfully processed {file}")
+                except Exception as e:
+                    logging.error(f"Error processing {file}: {e}")        
+
         print("--starting concurrent jobs--")
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(download_asset, asset, output_directory) for asset in assets]
