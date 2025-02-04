@@ -64,7 +64,7 @@ def main():
 
     # Define the command template for processing images
     commands = [
-        f"marinedebrisdetector --device='cuda' --input {os.path.join(input_folder, tif_file)} --output {os.path.join(output_folder, tif_file)}"
+        f"marinedebrisdetector --device=cuda --input {os.path.join(input_folder, tif_file)} --output {os.path.join(output_folder, tif_file)}"
         for tif_file in tif_files
     ]
     

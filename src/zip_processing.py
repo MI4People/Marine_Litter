@@ -31,23 +31,28 @@ def process_zip(zip_path, json_path):
             raise ValueError("TILE_ID not found in metadata.xml")
         tile_id = metadata_content[start_index:end_index].strip()
 
-    # Define output filename following the required format
+    # Define output filename
     output_filename = f"{tile_id}.tif"
     output_path = os.path.join(os.path.dirname(zip_path), output_filename)
 
-    # Use GDAL to merge the bands into one file
-    vrt_options = gdal.BuildVRTOptions(separate=True)
+    # Use GDAL to merge bands into one file
+    vrt_options = gdal.BuildVRTOptions(separate=True, srcNodata=0, VRTNodata=0)
     vrt_filename = output_path.replace('.tif', '.vrt')
     
     gdal.BuildVRT(vrt_filename, tif_files, options=vrt_options)
-    gdal.Translate(output_path, vrt_filename, format='GTiff')
 
-    # Cleanup extracted files and original ZIP
-    shutil.rmtree(extract_dir)
-    os.remove(zip_path)
-    os.remove(vrt_filename)
+    # Convert to final GeoTIFF with scaling and NoData handling
+    gdal.Translate(output_path, vrt_filename, format='GTiff',
+                   scaleParams=[[0, 10000, 0, 255]],  # Rescale brightness
+                   outputType=gdal.GDT_Byte,         # Ensure Byte (0-255)
+                   noData=0)                         # Preserve NoData
 
-    # Update the JSON file with the new filename
+    # Cleanup extracted files and intermediate VRT
+    # shutil.rmtree(extract_dir)
+    # os.remove(zip_path)
+    # os.remove(vrt_filename)
+
+    # Update JSON file with new filename
     if os.path.exists(json_path):
         with open(json_path, 'r') as json_file:
             json_data = json.load(json_file)
