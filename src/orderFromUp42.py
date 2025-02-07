@@ -53,7 +53,7 @@ def download_from_up42(date_from, date_to, config_path):
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
-    coordinates = config["coordinates"]
+    coordinates = config["features"][0]["geometry"]["coordinates"]
     product_id = config.get("product_id", "c3de9ed8-f6e5-4bb5-a157-f6430ba756da")
 
     # Initialize catalog and search for images
@@ -71,60 +71,63 @@ def download_from_up42(date_from, date_to, config_path):
         max_cloudcover=20,
     )
     search_results_df = catalog.search(search_parameters)
+    print(search_results_df)
 
     if search_results_df.empty:
         logging.info("No images found for the given date range and parameters.")
         return
 
     # Place order and download assets
-    order_parameters = catalog.construct_order_parameters(
-        data_product_id=product_id,
-        image_id=search_results_df.iloc[0]["id"],
-        aoi=geometry,
-    )
-
-    order = catalog.place_order(order_parameters)
-
-    # This is a quick hack to test order fulfillment and downloading order as soon as it is fulfilled
-    # We get a console output status report every 120 seconds
-    print(order.track_status(report_time=120))
-    while(order.is_fulfilled == False):
-        time.sleep(120)
-        
-    if order.status == "FULFILLED":
-        assets = order.get_assets()
-        print("--before assets download attempt--")
-        
-        for asset in assets:
-            asset.download(
-            output_directory="src/resources/download_images",
-            unpacking=False,
+    for index, _ in search_results_df.iterrows():
+        print(index)
+        order_parameters = catalog.construct_order_parameters(
+            data_product_id=product_id,
+            image_id=search_results_df.iloc[index]["id"],
+            aoi=geometry,
         )
-        
-        print("--after assets download attempt--")
-        if not assets:
-            logging.info("No assets found in the order.")
-            return
 
-        # Process the downloaded ZIP files
-        output_directory = "src/resources/download_images"
-        json_file_path = "src/resources/dates.json"
+        order = catalog.place_order(order_parameters)
 
-        for file in os.listdir(output_directory):
-            if file.endswith(".zip"):
-                zip_file_path = os.path.join(output_directory, file)
-                try:
-                    process_zip(zip_file_path, json_file_path)
-                    logging.info(f"Successfully processed {file}")
-                except Exception as e:
-                    logging.error(f"Error processing {file}: {e}")        
+        # This is a quick hack to test order fulfillment and downloading order as soon as it is fulfilled
+        # We get a console output status report every 120 seconds
+        print(order.track_status(report_time=120))
+        while(order.is_fulfilled == False):
+            time.sleep(120)
+            
+        if order.status == "FULFILLED":
+            assets = order.get_assets()
+            print("--before assets download attempt--")
+            
+            for asset in assets:
+                asset.download(
+                output_directory="src/resources/download_images",
+                unpacking=False,
+            )
+            
+            print("--after assets download attempt--")
+            if not assets:
+                logging.info("No assets found in the order.")
+                return
 
-        print("--starting concurrent jobs--")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(download_asset, asset, output_directory) for asset in assets]
-            show_progress(futures)
+            # Process the downloaded ZIP files
+            output_directory = "src/resources/download_images"
+            json_file_path = "src/resources/dates.json"
 
-        logging.info("\nAll assets have been downloaded.")
+            for file in os.listdir(output_directory):
+                if file.endswith(".zip"):
+                    zip_file_path = os.path.join(output_directory, file)
+                    try:
+                        process_zip(zip_file_path, json_file_path)
+                        logging.info(f"Successfully processed {file}")
+                    except Exception as e:
+                        logging.error(f"Error processing {file}: {e}")        
+
+            print("--starting concurrent jobs--")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [executor.submit(download_asset, asset, output_directory) for asset in assets]
+                show_progress(futures)
+
+            logging.info("\nAll assets have been downloaded.")
 
 if __name__ == "__main__":
     # Read environment variables

@@ -26,7 +26,7 @@ def main():
     # Environment variables for order
     os.environ["DATE_FROM"] = "2023-01-01"
     os.environ["DATE_TO"] = "2023-01-20"
-    os.environ["CONFIG_PATH"] = "src/resources/config.json"
+    os.environ["CONFIG_PATH"] = "src/resources/config.geojson"
 
     # Execute scripts in sequence
     logging.info("Starting workflow...")
