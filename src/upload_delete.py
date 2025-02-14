@@ -22,6 +22,6 @@ def upload_delete(bucket_name, source_folder, credential):
         print(f"Error: {e}")
 
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
     # Change 'resources' to the folder containing your files
-    upload("marinelitter_predicted", "resources", 'D:/Arbeit/credentials.json')
+ #   upload("marinelitter_predicted", "resources", 'D:/Arbeit/credentials.json')
