@@ -1,0 +1,29 @@
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
+
+# Set the working directory to /marine_litter
+WORKDIR /marine_litter
+
+# Install system dependencies (e.g., GDAL, etc.)
+RUN apt-get update && apt-get install -y \
+    gdal-bin \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the current directory contents into the container at /marine_litter
+COPY . /marine_litter
+
+# Install Python dependencies from requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set environment variables for the UP42 credentials and config path
+# These can be overwritten when running the container (e.g., via docker run -e DATE_FROM="..." -e DATE_TO="...")
+ENV UP42_CONFIG_PATH /marine_litter/src/.up42/credentials.json
+ENV CONFIG_PATH /marine_litter/src/resources/config.json
+ENV DATE_FROM ""
+ENV DATE_TO ""
+
+# Expose necessary ports (optional for APIs or web servers, comment out if not needed)
+EXPOSE 8080
+
+# Default command to run the download script
+CMD ["python", "src/download.py"]

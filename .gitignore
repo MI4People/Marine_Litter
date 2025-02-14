@@ -1,2 +1,8 @@
 .venv/
 .secret
+.tif
+.up42
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
