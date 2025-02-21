@@ -4,6 +4,7 @@ import logging
 import concurrent.futures
 import time
 import up42
+from datetime import date, timedelta
 
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -36,7 +37,7 @@ def show_progress(futures):
             break
         time.sleep(1)
 
-def download_from_up42(date_from, date_to, config_path):
+def download_from_up42(config_path):
     """Main function to authenticate, search, and download assets from UP42."""
     # Authenticate with UP42
     credentials_path = "src/.up42/credentials.json"
@@ -62,14 +63,18 @@ def download_from_up42(date_from, date_to, config_path):
         "type": "Polygon",
         "coordinates": coordinates,
     }
-
+    
+    date_of_interest = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+    print("Date of interest is: ", date_of_interest)
+    
     search_parameters = catalog.construct_search_parameters(
         collections=["sentinel-2"],
         geometry=geometry,
-        start_date=date_from,
-        end_date=date_to,
+        start_date=date_of_interest,
+        end_date=date_of_interest,
         max_cloudcover=20,
     )
+    
     search_results_df = catalog.search(search_parameters)
     print(search_results_df)
 
@@ -86,6 +91,7 @@ def download_from_up42(date_from, date_to, config_path):
             aoi=geometry,
         )
 
+        # in_ = input("Do you want to place order? (y/n): ")
         order = catalog.place_order(order_parameters)
 
         # This is a quick hack to test order fulfillment and downloading order as soon as it is fulfilled
@@ -131,12 +137,10 @@ def download_from_up42(date_from, date_to, config_path):
 
 if __name__ == "__main__":
     # Read environment variables
-    DATE_FROM = os.getenv("DATE_FROM")
-    DATE_TO = os.getenv("DATE_TO")
     CONFIG_PATH = os.getenv("CONFIG_PATH")
 
-    if not DATE_FROM or not DATE_TO or not CONFIG_PATH:
-        logging.error("DATE_FROM, DATE_TO, and CONFIG_PATH must be set as environment variables.")
+    if not CONFIG_PATH:
+        logging.error("CONFIG_PATH must be set as environment variables.")
         exit(1)
 
     if not os.path.exists(CONFIG_PATH):
@@ -144,4 +148,4 @@ if __name__ == "__main__":
         exit(1)
 
     # Run the download process
-    download_from_up42(DATE_FROM, DATE_TO, CONFIG_PATH)
+    download_from_up42(CONFIG_PATH)
