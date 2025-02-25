@@ -47,15 +47,12 @@ def process_zip(zip_path, json_path):
                    outputType=gdal.GDT_Byte,         # Ensure Byte (0-255)
                    noData=0)                         # Preserve NoData
 
-    # Cleanup extracted files and intermediate VRT
-    shutil.rmtree(extract_dir)
-    os.remove(zip_path)
-    os.remove(vrt_filename)
+    # Cleanup extracted files, intermediate VRT, and ZIP file
+    shutil.rmtree(extract_dir, ignore_errors=True)  # Delete extracted folder
+    os.remove(zip_path)  # Delete ZIP file
+    os.remove(vrt_filename)  # Delete intermediate VRT file
 
     # Update JSON file with yesterday's date and merged filename.
-    # In the end, the json on the Bechtle Server will be updated by this script.
-    # Then when the prediction images are copied to Google Cloud, the json is also copied.
-    # Prediction images and original images will be deleted, but the json will stay in both places.
     import datetime
     yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
     

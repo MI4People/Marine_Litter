@@ -64,7 +64,7 @@ def download_from_up42(config_path):
         "coordinates": coordinates,
     }
     
-    date_of_interest = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+    date_of_interest = (date.today() - timedelta(days=6)).strftime("%Y-%m-%d")
     print("Date of interest is: ", date_of_interest)
     
     search_parameters = catalog.construct_search_parameters(
@@ -106,7 +106,7 @@ def download_from_up42(config_path):
             
             for asset in assets:
                 asset.download(
-                output_directory="src/resources/download_images",
+                output_directory="images/downloaded",
                 unpacking=False,
             )
             
@@ -116,7 +116,7 @@ def download_from_up42(config_path):
                 return
 
             # Process the downloaded ZIP files
-            output_directory = "src/resources/download_images"
+            output_directory = "images/downloaded"
             json_file_path = "src/resources/dates.json"
 
             for file in os.listdir(output_directory):

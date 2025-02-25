@@ -49,7 +49,7 @@ def show_progress(futures):
 def main():
     # Define directories for input and output images
     input_folder = "src/resources/download_images"
-    output_folder = "images/output" # Oleksandra: Had to change from "src/resources/predicted_images", otherwise got bugs
+    output_folder = "images/predicted" # Oleksandra: Had to change from "src/resources/predicted_images", otherwise got bugs
     
     # Ensure output folder exists
     if not os.path.exists(output_folder):

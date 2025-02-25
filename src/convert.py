@@ -21,7 +21,7 @@ def convert_images(input_folder):
                 logging.error(f"Error converting file {file_name}: {e}")
 
 if __name__ == "__main__":
-    output_folder = "images/output"
+    output_folder = "images/predicted"
     if not os.path.exists(output_folder):
         logging.error(f"Output folder {output_folder} does not exist.")
     else:
