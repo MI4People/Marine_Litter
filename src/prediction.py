@@ -3,6 +3,7 @@ import subprocess
 import os
 import time
 import logging
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -26,7 +27,7 @@ def run_command(command):
             error_msg = process.stderr.read()
             logging.error(f"Error while executing command '{command}': {error_msg}")
         else:
-            logging.info(f"Command '{command}' executed successfully.")
+            logging.info(f"Command executed successfully.")
     
     except Exception as e:
         logging.error(f"An unexpected error occurred while executing command '{command}': {e}")
@@ -38,18 +39,30 @@ def show_progress(futures):
         done_count = sum(f.done() for f in futures)
         running_count = sum(1 for f in futures if f.running())
         
-        # Log the progress in real-time
-        logging.info(f"Progress: {done_count}/{total} completed, {running_count} running.", end='\r')
+        logging.info(f"Progress: {done_count}/{total} completed, {running_count} running.")
         
         if done_count == total:
             break
         
-        time.sleep(1)
+        time.sleep(5)
+
+def move_predictions(input_folder, output_folder):
+    """Move predicted files from input folder to output folder."""
+    for file_name in os.listdir(input_folder):
+        if file_name.endswith("_prediction.tif"):
+            src_path = os.path.join(input_folder, file_name)
+            dst_path = os.path.join(output_folder, file_name)
+            try:
+                shutil.move(src_path, dst_path)
+                logging.info(f"Moved prediction {file_name} to {output_folder}")
+            except Exception as e:
+                logging.error(f"Failed to move {file_name}: {e}")
 
 def main():
     # Define directories for input and output images
-    input_folder = "src/resources/download_images"
-    output_folder = "images/predicted" # Oleksandra: Had to change from "src/resources/predicted_images", otherwise got bugs
+    input_folder = "images/downloaded"
+    # Predictions are initially saved in the input folder; we'll move them later.
+    output_folder = "images/predicted"
     
     # Ensure output folder exists
     if not os.path.exists(output_folder):
@@ -62,20 +75,25 @@ def main():
         logging.warning("No TIFF files found in the input directory.")
         return
 
-    # Define the command template for processing images
+    # Define the command template (only the positional input argument is needed)
     commands = [
-        f"marinedebrisdetector --device=cuda --input {os.path.join(input_folder, tif_file)} --output {os.path.join(output_folder, tif_file)}"
+        f"marinedebrisdetector --device=cuda {os.path.join(input_folder, tif_file)}"
         for tif_file in tif_files
     ]
     
-    # Use ThreadPoolExecutor to run the commands in parallel (3 commands at a time)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    # Use ThreadPoolExecutor with max_workers=1 to run the commands serially
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         futures = [executor.submit(run_command, cmd) for cmd in commands]
         
-        # Start a parallel task to show progress while the commands run
+        # Show progress while the commands run
         show_progress(futures)
     
-    logging.info("\nAll commands have been executed successfully.")
+    logging.info("All prediction commands have been executed.")
     
+    # Move predicted images from the input folder to the output folder
+    move_predictions(input_folder, output_folder)
+    
+    logging.info("Workflow completed successfully.")
+
 if __name__ == "__main__":
     main()
