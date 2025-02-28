@@ -20,20 +20,24 @@ def main():
     scripts = {
         "order": "src/orderFromUp42.py",
         "predict": "src/prediction.py",
-        "convert": "src/convert.py"
+        "convert": "src/convert.py",
+        "upload_delete": "src/upload_delete.py"
     }
 
     # Environment variables for order
-    os.environ["DATE_FROM"] = "2023-01-01"
-    os.environ["DATE_TO"] = "2023-01-20"
     os.environ["CONFIG_PATH"] = "src/resources/config.geojson"
 
     # Execute scripts in sequence
-    logging.info("Starting workflow...")
+    logging.info("--------------Starting workflow--------------")
+    logging.info("--------------Order and Download Images--------------")
     execute_script(scripts["order"])
+    logging.info("--------------Analise Images--------------")
     execute_script(scripts["predict"])
+    logging.info("--------------Convert Images--------------")
     execute_script(scripts["convert"])
-    logging.info("Workflow completed successfully.")
+    logging.info("--------------Upload and Delete Images--------------")
+    execute_script(scripts["upload_delete"])
+    logging.info("--------------Workflow completed successfully.--------------")
 
 if __name__ == "__main__":
     main()
