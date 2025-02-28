@@ -6,8 +6,18 @@ WORKDIR /marine_litter
 
 # Install system dependencies (e.g., GDAL, etc.)
 RUN apt-get update && apt-get install -y \
+    binutils \
+    libproj-dev \
     gdal-bin \
+    libgdal-dev \
+    build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
+
+RUN export CPLUS_INCLUDE_PATH=/usr/include/gdal
+RUN export C_INCLUDE_PATH=/usr/include/gdal
+
+RUN pip install --global-option=build_ext --global-option="-I/usr/include/gdal" GDAL==`gdal-config --version`
 
 # Copy the current directory contents into the container at /marine_litter
 COPY . /marine_litter
@@ -16,14 +26,11 @@ COPY . /marine_litter
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables for the UP42 credentials and config path
-# These can be overwritten when running the container (e.g., via docker run -e DATE_FROM="..." -e DATE_TO="...")
-ENV UP42_CONFIG_PATH /marine_litter/src/.up42/credentials.json
-ENV CONFIG_PATH /marine_litter/src/resources/config.json
-ENV DATE_FROM ""
-ENV DATE_TO ""
 
-# Expose necessary ports (optional for APIs or web servers, comment out if not needed)
-EXPOSE 8080
+RUN mkdir -p images/downloaded
+RUN mkdir -p images/predicted
+RUN mkdir -p /root/.cache/torch/hub/checkpoints
+RUN mv epoch=54-val_loss=0.50-auroc=0.987.ckpt /root/.cache/torch/hub/checkpoints/epoch=54-val_loss=0.50-auroc=0.987.ckpt
 
 # Default command to run the download script
-CMD ["python", "src/download.py"]
+CMD ["python", "src/main.py"]
