@@ -1,9 +1,0 @@
-google earth engine,CloudStorage
-Docker image,
-authentication 
-HashiCorp,
-VM,
-automatisch in output datei save
-predicted bild hochladen
-->
-prediction layer on google map

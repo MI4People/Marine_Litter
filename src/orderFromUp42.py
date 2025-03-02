@@ -54,17 +54,21 @@ def download_from_up42(config_path):
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
+    # Geojson information storing
+    coordinate_type = config["features"][0]["geometry"]["type"]
     coordinates = config["features"][0]["geometry"]["coordinates"]
+    
     product_id = config.get("product_id", "c3de9ed8-f6e5-4bb5-a157-f6430ba756da")
-
+    logging.info("type is: ", config["features"][0]["geometry"]["type"])
+    
     # Initialize catalog and search for images
     catalog = up42.initialize_catalog()
     geometry = {
-        "type": "Polygon",
+        "type": coordinate_type,
         "coordinates": coordinates,
     }
     
-    date_of_interest = (date.today() - timedelta(days=6)).strftime("%Y-%m-%d")
+    date_of_interest = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
     print("Date of interest is: ", date_of_interest)
     
     search_parameters = catalog.construct_search_parameters(
