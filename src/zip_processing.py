@@ -51,24 +51,5 @@ def process_zip(zip_path, json_path):
     shutil.rmtree(extract_dir, ignore_errors=True)  # Delete extracted folder
     os.remove(zip_path)  # Delete ZIP file
     os.remove(vrt_filename)  # Delete intermediate VRT file
-
-    # Update JSON file with yesterday's date and merged filename.
-    import datetime
-    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-    
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            json_data = json.load(json_file)
-    else:
-        json_data = {}
-    
-    if yesterday in json_data:
-        json_data[yesterday].append(output_filename)
-    else:
-        json_data[yesterday] = [output_filename]
-    
-    with open(json_path, 'w') as json_file:
-        json.dump(json_data, json_file, indent=4)
     
     print(f"Processing complete. Output file: {output_filename}")
-    print(f"JSON file updated with {output_filename} for {yesterday}")

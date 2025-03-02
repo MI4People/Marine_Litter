@@ -4,6 +4,8 @@ import os
 import time
 import logging
 import shutil
+import json
+import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -58,6 +60,29 @@ def move_predictions(input_folder, output_folder):
             except Exception as e:
                 logging.error(f"Failed to move {file_name}: {e}")
 
+def update_dates_json(json_path, predicted_folder):
+    """Update JSON file with yesterday's date and predicted filenames."""
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    
+    # Get all files in the predicted folder
+    predicted_files = os.listdir(predicted_folder)
+    
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            json_data = json.load(json_file)
+    else:
+        json_data = {}
+    
+    if yesterday in json_data:
+        json_data[yesterday].extend(predicted_files)
+    else:
+        json_data[yesterday] = predicted_files
+    
+    with open(json_path, 'w') as json_file:
+        json.dump(json_data, json_file, indent=4)
+    
+    logging.info(f"Updated JSON for {yesterday} with files: {predicted_files}")
+
 def main():
     # Define directories for input and output images
     input_folder = "images/downloaded"
@@ -94,6 +119,10 @@ def main():
     move_predictions(input_folder, output_folder)
     
     logging.info("Workflow completed successfully.")
+    
+    # Update JSON file with predicted image filenames using update_dates_json
+    json_file_path = "images/dates.json"
+    update_dates_json(json_file_path, output_folder)
 
 if __name__ == "__main__":
     main()
