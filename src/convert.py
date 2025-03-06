@@ -7,6 +7,8 @@ import shutil
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+OUTPUT_PATH = os.getenv("OUTPUT_PATH")
+
 def convert_images(input_folder):
     """Convert all TIFF images in the input folder using gdal_translate."""
     for file_name in os.listdir(input_folder):
@@ -29,8 +31,7 @@ def convert_images(input_folder):
                     os.remove(temp_file) 
 
 if __name__ == "__main__":
-    output_folder = "images/predicted"
-    if not os.path.exists(output_folder):
-        logging.error(f"Output folder {output_folder} does not exist.")
+    if not os.path.exists(OUTPUT_PATH):
+        logging.error(f"Output folder {OUTPUT_PATH} does not exist.")
     else:
-        convert_images(output_folder)
+        convert_images(OUTPUT_PATH)

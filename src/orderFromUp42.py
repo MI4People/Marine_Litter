@@ -12,6 +12,11 @@ from src.zip_processing import process_zip
 
 logging.basicConfig(level=logging.INFO)
 
+DAYBEFORE = int(os.environ.get("DAYBEFORE", 2))
+CONFIG_PATH = os.getenv("CONFIG_PATH")
+INPUT_PATH = os.getenv("INPUT_PATH")
+UP42_CRED_PATH = os.getenv("UP42_CRED_PATH")
+
 def download_asset(asset, output_directory):
     """Downloads a single asset."""
     try:
@@ -40,11 +45,10 @@ def show_progress(futures):
 def download_from_up42(config_path):
     """Main function to authenticate, search, and download assets from UP42."""
     # Authenticate with UP42
-    credentials_path = "src/.up42/credentials.json"
-    if not os.path.exists(credentials_path):
-        raise FileNotFoundError(f"Credentials file not found at {credentials_path}")
+    if not os.path.exists(UP42_CRED_PATH):
+        raise FileNotFoundError(f"Credentials file not found at {UP42_CRED_PATH}")
 
-    with open(credentials_path, "r") as credentials_file:
+    with open(UP42_CRED_PATH, "r") as credentials_file:
         credentials = json.load(credentials_file)
 
     up42.authenticate(username=credentials["username"], password=credentials["password"])
@@ -68,7 +72,7 @@ def download_from_up42(config_path):
         "coordinates": coordinates,
     }
     
-    date_of_interest = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+    date_of_interest = (date.today() - timedelta(days=DAYBEFORE)).strftime("%Y-%m-%d")
     print("Date of interest is: ", date_of_interest)
     
     search_parameters = catalog.construct_search_parameters(
@@ -110,7 +114,7 @@ def download_from_up42(config_path):
             
             for asset in assets:
                 asset.download(
-                output_directory="images/downloaded",
+                INPUT_PATH,
                 unpacking=False,
             )
             
@@ -119,30 +123,23 @@ def download_from_up42(config_path):
                 logging.info("No assets found in the order.")
                 return
 
-            # Process the downloaded ZIP files
-            output_directory = "images/downloaded"
-            json_file_path = "src/resources/dates.json"
-
-            for file in os.listdir(output_directory):
+            for file in os.listdir(INPUT_PATH):
                 if file.endswith(".zip"):
-                    zip_file_path = os.path.join(output_directory, file)
+                    zip_file_path = os.path.join(INPUT_PATH, file)
                     try:
-                        process_zip(zip_file_path, json_file_path)
+                        process_zip(zip_file_path)
                         logging.info(f"Successfully processed {file}")
                     except Exception as e:
                         logging.error(f"Error processing {file}: {e}")        
 
             print("--starting concurrent jobs--")
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                futures = [executor.submit(download_asset, asset, output_directory) for asset in assets]
+                futures = [executor.submit(download_asset, asset, INPUT_PATH) for asset in assets]
                 show_progress(futures)
 
             logging.info("\nAll assets have been downloaded.")
 
 if __name__ == "__main__":
-    # Read environment variables
-    CONFIG_PATH = os.getenv("CONFIG_PATH")
-
     if not CONFIG_PATH:
         logging.error("CONFIG_PATH must be set as environment variables.")
         exit(1)

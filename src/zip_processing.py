@@ -5,7 +5,7 @@ import json
 import shutil
 from osgeo import gdal
 
-def process_zip(zip_path, json_path):
+def process_zip(zip_path):
     # Extract ZIP file
     extract_dir = os.path.splitext(zip_path)[0]
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:

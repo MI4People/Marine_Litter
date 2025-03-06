@@ -1,7 +1,7 @@
 
 # Image Download and Prediction using UP42
 
-This project allows you to download satellite images using UP42 API and process them in parallel. The downloaded images are saved in the `src/resources/download_images` directory, and processed images will be saved in `src/resources/predicted_image`. Meta data includes date and coordinates of image is saved in `src/resources/history.csv`.
+This project allows you to download satellite images using UP42 API and process them in parallel. The downloaded images are saved in the `images/downloaded` directory, and processed images will be saved in `images/predicted`. Meta data includes date and coordinates of image is saved in `src/resources/dates.json`.
 
 ## Setup and Usage
 
@@ -9,8 +9,46 @@ This project allows you to download satellite images using UP42 API and process 
 
 - Docker
 - Python 3.x
-- UP42 account and credentials, credentials should be saved in `src/.up42/credentials.json`
+- UP42 account and credentials, credentials should be saved in `secrets/up42_credentials.json`
 `e.g. {username:"username", password:"pwd"}`
+- Google credentials in `secrets/google_credentials.json`
+
+### Environment Variables
+
+- `CONFIG_PATH` - The path to `coordinates.json` containing coordinates.
+
+### Build the Docker Image
+
+```bash
+docker build -t marine_litter-image -f DockerFile .
+```
+
+### Run the Docker Image
+
+```bash
+docker run —rm -e DAYBEFORE=2 -e WORKERS=1 -e DEVICE="cpu“ marine_litter-image
+```
+
+- WORKERS: how many images analysis in parallel
+- DEVICE: cpu or cuda
+
+### Set up routine running on server
+
+git clone https://github.com/MI4People/Marine_Litter /home/demo1/marine_litter
+
+```bash
+crontab -e
+```
+```bash
+0 2 * * * cd /home/demo1/marine_litter && docker-compose up -d && docker-compose logs > /home/demo1/logs/docker_logs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).log 2>&1
+```
+
+
+
+
+
+
+
 
 ### Optional testing environment with conda
 
@@ -21,23 +59,3 @@ Run the following in the terminal, preferably within your repo path:
 4. conda install -c conda-forge up42-py
 5. pip install marinedebrisdetector
 6. make sure, that the file src/.up42/credentials.json exists, and is properly set with the correct credentials.
-   
-### Environment Variables
-
-- `DATE_FROM` - The start date for the satellite images (format: YYYY-MM-DD).
-- `DATE_TO` - The end date for the satellite images (format: YYYY-MM-DD).
-- `CONFIG_PATH` - The path to `coordinates.json` containing coordinates.
-
-### Build the Docker Image
-
-```bash
-docker build -t marine_litter-image .
-
-### Build the Docker Image
-
-```bash
-docker run -e DATE_FROM="2023-01-01" -e DATE_TO="2023-12-31" -e CONFIG_PATH="/marine_litter/src/resources/config.json"  -v "$(pwd)/src/.up42/credentials.json:/marine_litter/src/.up42/credentials.json" -v "$(pwd)/src/resources:/marine_litter/src/resources" marine_litter-image
-
-```bash
-docker run marine_litter-image python src/prediction.py
-

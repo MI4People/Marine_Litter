@@ -26,6 +26,12 @@ def main():
 
     # Environment variables for order
     os.environ["CONFIG_PATH"] = "src/resources/config.geojson"
+    os.environ["DATES_PATH"] = "src/resources/dates.json"
+    os.environ["INPUT_PATH"] = "images/downloaded"
+    os.environ["OUTPUT_PATH"] = "images/predicted"
+    os.environ["UP42_CRED_PATH"] = "secrets/up42_credentials.json"
+    os.environ["GOOGLE_CRED_PATH"] = "secrets/google_credentials.json"
+    os.environ["BUCKET_NAME"] = "marinelitter_predicted"
 
     # Execute scripts in sequence
     logging.info("--------------Starting workflow--------------")

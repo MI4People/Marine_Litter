@@ -5,6 +5,11 @@ from google.cloud import storage
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+DATES_PATH = os.getenv("DATES_PATH")
+GOOGLE_CRED_PATH = os.getenv("GOOGLE_CRED_PATH")
+BUCKET_NAME = os.getenv("BUCKET_NAME")
+OUTPUT_PATH = os.getenv("OUTPUT_PATH")
+
 def upload_delete(bucket_name, source_folder, extra_file, credential):
     try:
         client = storage.Client.from_service_account_json(credential)
@@ -50,8 +55,8 @@ def upload_delete(bucket_name, source_folder, extra_file, credential):
 
 if __name__ == "__main__":
     upload_delete(
-        bucket_name="marinelitter_predicted",
-        source_folder="images/predicted",
-        extra_file="src/resources/dates.json",
-        credential="src/credentials.json"
+        bucket_name=BUCKET_NAME,
+        source_folder=OUTPUT_PATH,
+        extra_file=DATES_PATH,
+        credential=GOOGLE_CRED_PATH
     )
