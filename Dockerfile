@@ -39,4 +39,4 @@ ENV WORKERS=1
 ENV DEVICE="cpu"
 
 # Default command to run the download script
-CMD ["python", "src/main.py"]
+CMD ["python", "src/main.py", "&&", "exit"]

@@ -23,7 +23,7 @@ This project allows you to download satellite images using UP42 API and process 
 docker build -t marine_litter-image -f DockerFile .
 ```
 
-### Run the Docker Image
+### Run the Docker Image local for testing
 
 ```bash
 docker run —rm -e DAYBEFORE=2 -e WORKERS=1 -e DEVICE="cpu“ marine_litter-image
@@ -32,15 +32,29 @@ docker run —rm -e DAYBEFORE=2 -e WORKERS=1 -e DEVICE="cpu“ marine_litter-ima
 - WORKERS: how many images analysis in parallel
 - DEVICE: cpu or cuda
 
+
+### Sever requirements:
+- Install NVIDIA driver (was done by Bechtle)
+- Install Docker: https://docs.docker.com/engine/install/ubuntu/
+- Install Toolkit to use CUDA in container: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
 ### Set up routine running on server
 
-git clone https://github.com/MI4People/Marine_Litter /home/demo1/marine_litter
+```bash
+git clone https://github.com/MI4People/Marine_Litter /home/demo1/marine_litter_project/marine_litter
+```
+
+```bash
+cd marine_litter_project/marine_litter
+docker-compose build
+```
 
 ```bash
 crontab -e
 ```
+
 ```bash
-0 2 * * * cd /home/demo1/marine_litter && docker-compose up -d && docker-compose logs > /home/demo1/logs/docker_logs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).log 2>&1
+0 2 * * * cd /home/demo1/marine_litter_project/marine_litter && docker-compose up && docker-compose logs > /home/demo1/marine_litter_project/logs/docker_logs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).log 2>&1
 ```
 
 
