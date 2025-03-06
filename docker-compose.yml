@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  marine_litter:
+    build: .
+    #volumes:
+    #  - /home/demo1/secrets:/marine_litter/secrets:ro
+    environment:
+      - DAYBEFORE=2
+      - WORKERS=3
+      - DEVICE="cuda"
+    restart: unless-stopped
