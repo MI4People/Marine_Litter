@@ -90,6 +90,17 @@ def update_dates_json(json_path, predicted_folder):
     
     logging.info(f"Updated JSON for {yesterday} with files: {predicted_files}")
 
+def clean_input_folder(input_folder):
+    """Delete all files in the input folder after processing."""
+    try:
+        for file_name in os.listdir(input_folder):
+            file_path = os.path.join(input_folder, file_name)
+            os.remove(file_path)
+            logging.info(f"Deleted: {file_name}")
+        logging.info("All input files deleted successfully.")
+    except Exception as e:
+        logging.error(f"Error while deleting files from input folder: {e}")
+
 def main():    
     # Ensure output folder exists
     if not os.path.exists(OUTPUT_PATH):
@@ -124,6 +135,8 @@ def main():
     
     # Update JSON file with predicted image filenames using update_dates_json
     update_dates_json(DATES_PATH, OUTPUT_PATH)
+
+    clean_input_folder(INPUT_PATH)
 
 if __name__ == "__main__":
     main()
