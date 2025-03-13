@@ -68,7 +68,7 @@ def move_predictions(input_folder, output_folder):
                 logging.error(f"Failed to move {file_name}: {e}")
 
 def update_dates_json(json_path, predicted_folder):
-    """Update JSON file with yesterday's date and predicted filenames."""
+    """Update JSON file with yesterday's date and predicted filenames without duplicates."""
     yesterday = (datetime.date.today() - datetime.timedelta(days=DAYBEFORE)).isoformat()
     
     # Get all files in the predicted folder
@@ -81,7 +81,9 @@ def update_dates_json(json_path, predicted_folder):
         json_data = {}
     
     if yesterday in json_data:
-        json_data[yesterday].extend(predicted_files)
+        for file in predicted_files:
+            if file not in json_data[yesterday]:
+                json_data[yesterday].append(file)
     else:
         json_data[yesterday] = predicted_files
     
