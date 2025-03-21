@@ -16,7 +16,7 @@ DAYBEFORE = int(os.environ.get("DAYBEFORE", 2))
 CONFIG_PATH = os.getenv("CONFIG_PATH")
 INPUT_PATH = os.getenv("INPUT_PATH")
 UP42_CRED_PATH = os.getenv("UP42_CRED_PATH")
-MAX_WORKERS = int(os.environ.get("ORDER_WORKERS", 3))
+ORDER_WORKERS = int(os.environ.get("ORDER_WORKERS", 3))
 
 def process_order(image_id, product_id, geometry, input_path):
     """
@@ -159,8 +159,8 @@ def download_from_up42(config_path):
             return
 
         # Process orders in parallel
-        logging.info(f"Starting parallel processing of {len(search_results_df)} orders with {MAX_WORKERS} workers")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        logging.info(f"Starting parallel processing of {len(search_results_df)} orders with {ORDER_WORKERS} workers")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=ORDER_WORKERS) as executor:
             # Create a list of futures for each image to process
             futures = [
                 executor.submit(
