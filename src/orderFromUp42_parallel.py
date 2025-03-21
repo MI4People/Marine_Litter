@@ -16,7 +16,7 @@ DAYBEFORE = int(os.environ.get("DAYBEFORE", 2))
 CONFIG_PATH = os.getenv("CONFIG_PATH")
 INPUT_PATH = os.getenv("INPUT_PATH")
 UP42_CRED_PATH = os.getenv("UP42_CRED_PATH")
-MAX_WORKERS = int(os.environ.get("WORKERS", 3))
+MAX_WORKERS = int(os.environ.get("ORDER_WORKERS", 3))
 
 def process_order(image_id, product_id, geometry, input_path):
     """
