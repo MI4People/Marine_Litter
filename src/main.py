@@ -32,6 +32,7 @@ def main():
     os.environ["UP42_CRED_PATH"] = "secrets/up42_credentials.json"
     os.environ["GOOGLE_CRED_PATH"] = "secrets/google_credentials.json"
     os.environ["BUCKET_NAME"] = "marinelitter_predicted"
+    os.environ["MAX_WORKERS"] = "10"
 
     # Execute scripts in sequence
     logging.info("--------------Starting workflow--------------")
