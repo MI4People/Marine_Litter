@@ -18,7 +18,7 @@ def execute_script(script_path, args=""):
 def main():
     # Define script paths with correct relative paths
     scripts = {
-        "order": "src/orderFromUp42.py",
+        "order": "src/orderFromUp42_parallel.py",
         "predict": "src/prediction.py",
         "convert": "src/convert.py",
         "upload_delete": "src/upload_delete.py"
