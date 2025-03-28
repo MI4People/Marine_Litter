@@ -159,7 +159,7 @@ def download_from_up42(config_path):
             return
 
         # Process orders in parallel
-        logging.info(f"Starting parallel processing of {len(search_results_df)} orders with {ORDER_WORKERS} workers")
+        logging.info(f"Starting parallel processing of {len(search_results_df)} orders with {ORDER_WORKERS} workers available.")
         with concurrent.futures.ThreadPoolExecutor(max_workers=ORDER_WORKERS) as executor:
             # Create a list of futures for each image to process
             futures = [
