@@ -37,13 +37,13 @@ def main():
     # Execute scripts in sequence
     logging.info("--------------Starting workflow--------------")
     logging.info("--------------Order and Download Images--------------")
-    execute_script(scripts["order"])
+    #execute_script(scripts["order"])
     logging.info("--------------Analise Images--------------")
     execute_script(scripts["predict"])
     logging.info("--------------Convert Images--------------")
-    execute_script(scripts["convert"])
+    #execute_script(scripts["convert"])
     logging.info("--------------Upload and Delete Images--------------")
-    execute_script(scripts["upload_delete"])
+    #execute_script(scripts["upload_delete"])
     logging.info("--------------Workflow completed successfully.--------------")
 
 if __name__ == "__main__":
