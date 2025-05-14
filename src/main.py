@@ -21,7 +21,7 @@ def main():
         "order": "src/orderFromUp42_parallel.py",
         "predict": "src/prediction.py",
         "convert": "src/convert.py",
-        "upload_delete": "src/upload_delete.py"
+        # "upload_delete": "src/upload_delete.py"
     }
 
     # Environment variables for order
@@ -38,12 +38,12 @@ def main():
     logging.info("--------------Starting workflow--------------")
     logging.info("--------------Order and Download Images--------------")
     execute_script(scripts["order"])
-    logging.info("--------------Analise Images--------------")
+    logging.info("--------------Analyse Images--------------")
     execute_script(scripts["predict"])
     logging.info("--------------Convert Images--------------")
     execute_script(scripts["convert"])
-    logging.info("--------------Upload and Delete Images--------------")
-    execute_script(scripts["upload_delete"])
+    # logging.info("--------------Upload and Delete Images--------------")
+    # execute_script(scripts["upload_delete"])
     logging.info("--------------Workflow completed successfully.--------------")
 
 if __name__ == "__main__":
