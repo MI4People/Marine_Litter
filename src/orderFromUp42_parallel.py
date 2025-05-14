@@ -148,7 +148,7 @@ def download_from_up42(config_path):
             geometry=geometry,
             start_date=date_of_interest,
             end_date=date_of_interest,
-            max_cloudcover=20,
+            max_cloudcover=100,
         )
         
         search_results_df = catalog.search(search_parameters)
