@@ -8,7 +8,8 @@ import json
 import datetime
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+testing_format='%(asctime)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.INFO, format=testing_format)
 
 DAYBEFORE = int(os.environ.get("DAYBEFORE", 2))
 WORKERS = int(os.environ.get("WORKERS", 1))
@@ -22,7 +23,10 @@ def run_command(command):
     """Run the command to process each image and log progress."""
     try:
         logging.info(f"Executing command: {command}")
-        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(
+            command, shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         for line in process.stdout:
             logging.info(line.strip())
         process.wait()
@@ -48,46 +52,48 @@ def show_progress(futures):
 
 
 def move_predictions(input_folder, output_folder):
-    """Move predicted files from input folder to output folder."""
+    """Move predicted files from input folder to output folder and return moved filenames."""
+    moved_files = []
     for file_name in os.listdir(input_folder):
         if file_name.endswith("_prediction.tif"):
             src_path = os.path.join(input_folder, file_name)
             dst_path = os.path.join(output_folder, file_name)
             try:
                 shutil.move(src_path, dst_path)
+                moved_files.append(file_name)
                 logging.info(f"Moved prediction {file_name} to {output_folder}")
             except Exception as e:
                 logging.error(f"Failed to move {file_name}: {e}")
+    return moved_files
 
 
-def update_dates_json(json_path, predicted_folder):
-    """Update JSON file with yesterday's date and predicted filenames without duplicates."""
+def update_dates_json(json_path, predicted_files):
+    """Update JSON file with yesterday's date and provided predicted filenames without duplicates."""
     yesterday = (datetime.date.today() - datetime.timedelta(days=DAYBEFORE)).isoformat()
 
-    # Collect only *_prediction.tif files and ensure uniqueness in the list itself
-    predicted_files = list({f for f in os.listdir(predicted_folder) if f.endswith("_prediction.tif")})
-
+    # Load or initialize JSON data
     if os.path.exists(json_path):
         with open(json_path, "r") as json_file:
             try:
                 json_data = json.load(json_file)
             except json.JSONDecodeError:
-                logging.warning(f"Corrupted JSON found at {json_path}. Re‑creating file.")
+                logging.warning(f"Corrupted JSON found at {json_path}. Re-creating file.")
                 json_data = {}
     else:
         json_data = {}
 
-    # Initialise the date bucket if missing
+    # Ensure bucket for yesterday exists
     json_data.setdefault(yesterday, [])
 
-    # Append only truly new files for that date
+    # Append only new files for that date
     for file in predicted_files:
         if file not in json_data[yesterday]:
             json_data[yesterday].append(file)
 
-    # Defensive: ensure each bucket is unique & sorted
+    # Deduplicate and sort
     json_data[yesterday] = sorted(set(json_data[yesterday]))
 
+    # Write out
     with open(json_path, "w") as json_file:
         json.dump(json_data, json_file, indent=4)
 
@@ -107,10 +113,12 @@ def clean_input_folder(input_folder):
 
 
 def main():
-    # Ensure output folder exists
-    if not os.path.exists(OUTPUT_PATH):
-        os.makedirs(OUTPUT_PATH)
-        logging.info(f"Created output directory: {OUTPUT_PATH}")
+    # Ensure output folder is fresh
+    if os.path.exists(OUTPUT_PATH):
+        shutil.rmtree(OUTPUT_PATH)
+        logging.info(f"Cleared existing output directory: {OUTPUT_PATH}")
+    os.makedirs(OUTPUT_PATH, exist_ok=True)
+    logging.info(f"Created output directory: {OUTPUT_PATH}")
 
     tif_files = [f for f in os.listdir(INPUT_PATH) if f.endswith(".tif")]
     if not tif_files:
@@ -125,17 +133,17 @@ def main():
         futures = [executor.submit(run_command, cmd) for cmd in commands]
         show_progress(futures)
     logging.info("All prediction commands have been executed.")
-    logging.info("marinedebrisdetector call is currently commented out – skipping model execution.")
 
-    # Move predicted images (if any) from input to output
-    move_predictions(INPUT_PATH, OUTPUT_PATH)
+    # Move predicted images and capture filenames
+    moved_files = move_predictions(INPUT_PATH, OUTPUT_PATH)
+
+    # Update JSON with only today's predictions
+    update_dates_json(DATES_PATH, moved_files)
+
+    # Clean up input folder
+    clean_input_folder(INPUT_PATH)
 
     logging.info("Workflow completed successfully.")
-
-    # Update JSON with deduplication logic
-    update_dates_json(DATES_PATH, OUTPUT_PATH)
-
-    clean_input_folder(INPUT_PATH)
 
 
 if __name__ == "__main__":
