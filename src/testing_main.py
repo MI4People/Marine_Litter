@@ -18,10 +18,10 @@ def execute_script(script_path, args=""):
 def main():
     # Define script paths with correct relative paths
     scripts = {
-        "order": "src/orderFromUp42_parallel.py",
+        #"order": "src/orderFromUp42_parallel.py",
         "predict": "src/prediction.py",
-        "convert": "src/convert.py",
-        "upload_delete": "src/upload_delete.py"
+        #"convert": "src/convert.py",
+        #"upload_delete": "src/upload_delete.py"
     }
 
     # Environment variables for order
@@ -32,17 +32,18 @@ def main():
     os.environ["UP42_CRED_PATH"] = "secrets/up42_credentials.json"
     os.environ["GOOGLE_CRED_PATH"] = "secrets/google_credentials.json"
     os.environ["BUCKET_NAME"] = "marinelitter_predicted"
+    os.environ["ORDER_WORKERS"] = "10"
 
     # Execute scripts in sequence
     logging.info("--------------Starting workflow--------------")
-    logging.info("--------------Order and Download Images--------------")
-    execute_script(scripts["order"])
-    logging.info("--------------Analyse Images--------------")
+    #logging.info("--------------Order and Download Images--------------")
+    #execute_script(scripts["order"])
+    logging.info("--------------Analise Images--------------")
     execute_script(scripts["predict"])
-    logging.info("--------------Convert Images--------------")
-    execute_script(scripts["convert"])
-    logging.info("--------------Upload and Delete Images--------------")
-    execute_script(scripts["upload_delete"])
+    #logging.info("--------------Convert Images--------------")
+    #execute_script(scripts["convert"])
+    #logging.info("--------------Upload and Delete Images--------------")
+    #execute_script(scripts["upload_delete"])
     logging.info("--------------Workflow completed successfully.--------------")
 
 if __name__ == "__main__":

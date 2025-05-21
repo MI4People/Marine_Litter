@@ -63,7 +63,7 @@ def download_from_up42(config_path):
     coordinates = config["features"][0]["geometry"]["coordinates"]
     
     product_id = config.get("product_id", "c3de9ed8-f6e5-4bb5-a157-f6430ba756da")
-    logging.info("type is: ", config["features"][0]["geometry"]["type"])
+    logging.info(f"type is: {coordinate_type}")
     
     # Initialize catalog and search for images
     catalog = up42.initialize_catalog()
