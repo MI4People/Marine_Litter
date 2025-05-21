@@ -3,10 +3,19 @@ version: "3.8"
 services:
   marine_litter:
     build: .
-    #volumes:
-    #  - /home/demo1/secrets:/marine_litter/secrets:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      # - /home/demo1/marine_litter_project/secrets:/marine_litter/secrets:ro
+      # - /home/demo1/marine_litter_project/data/dates.json:/marine_litter/src/resources/dates.json
     environment:
       - DAYBEFORE=2
-      - WORKERS=3
-      - DEVICE="cuda"
+      - PREDICTE_WORKERS=3
+      - ORDER_WORKERS=10
+      - DEVICE=cuda
     restart: unless-stopped

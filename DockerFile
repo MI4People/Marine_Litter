@@ -30,12 +30,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir -p images/downloaded
 RUN mkdir -p images/predicted
+RUN mkdir -p secrets
 RUN mkdir -p /root/.cache/torch/hub/checkpoints
 RUN wget --no-check-certificate 'http://dalic.de/mi4people/epoch=54-val_loss=0.50-auroc=0.987.ckpt'
 RUN mv epoch=54-val_loss=0.50-auroc=0.987.ckpt /root/.cache/torch/hub/checkpoints/epoch=54-val_loss=0.50-auroc=0.987.ckpt
 
 ENV DAYBEFORE=2
-ENV WORKERS=1
+ENV PREDICTE_WORKERS=1
+ENV ORDER_WORKERS=10
 ENV DEVICE="cpu"
 
 # Default command to run the download script

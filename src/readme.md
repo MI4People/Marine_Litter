@@ -26,7 +26,7 @@ docker build -t marine_litter-image -f DockerFile .
 ### Run the Docker Image
 
 ```bash
-docker run —rm -e DAYBEFORE=2 -e WORKERS=1 -e DEVICE="cpu“ marine_litter-image
+docker run —rm -e DAYBEFORE=2 -e PREDICTE_WORKERS=1 -e ORDER_WORKERS=1 -e DEVICE="cpu“ marine_litter-image
 ```
 
 - WORKERS: how many images analysis in parallel
@@ -40,7 +40,8 @@ git clone https://github.com/MI4People/Marine_Litter /home/demo1/marine_litter
 crontab -e
 ```
 ```bash
-0 2 * * * cd /home/demo1/marine_litter && docker-compose up -d && docker-compose logs > /home/demo1/logs/docker_logs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).log 2>&1
+0 2 * * * cd /home/demo1/marine_litter_project/marine_litter && docker-compose up && docker-compose logs > /home/demo1/marine_litter_project/logs/docker_logs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).log 2>&1
+0 10 * * * cd /home/demo1/marine_litter_project/marine_litter && docker-compose down
 ```
 
 

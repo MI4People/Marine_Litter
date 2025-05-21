@@ -12,7 +12,7 @@ testing_format='%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(level=logging.INFO, format=testing_format)
 
 DAYBEFORE = int(os.environ.get("DAYBEFORE", 2))
-WORKERS = int(os.environ.get("WORKERS", 1))
+PREDICTE_WORKERS = int(os.environ.get("PREDICTE_WORKERS", 1))
 DEVICE = os.environ.get("DEVICE", "cuda")
 DATES_PATH = os.getenv("DATES_PATH")
 INPUT_PATH = os.getenv("INPUT_PATH")
@@ -129,7 +129,7 @@ def main():
         f"marinedebrisdetector --device={DEVICE} {os.path.join(INPUT_PATH, tif_file)}"
         for tif_file in tif_files
     ]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=PREDICTE_WORKERS) as executor:
         futures = [executor.submit(run_command, cmd) for cmd in commands]
         show_progress(futures)
     logging.info("All prediction commands have been executed.")
