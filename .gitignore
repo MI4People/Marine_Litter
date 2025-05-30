@@ -1,1 +1,10 @@
 .venv/
+.secret
+.tif
+.up42
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+google_credentials.json
+up42_credentials.json

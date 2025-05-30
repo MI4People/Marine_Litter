@@ -1,0 +1,3 @@
+marinedebrisdetector
+up42-py==1.0.0
+google-cloud-storage
