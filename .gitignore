@@ -8,3 +8,4 @@ __pycache__/
 *.pyo
 google_credentials.json
 up42_credentials.json
+download_images/
