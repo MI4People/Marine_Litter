@@ -1,14 +1,14 @@
-import os
+import concurrent.futures
+from datetime import date, timedelta
 import json
 import logging
-import concurrent.futures
-import time
-import up42
-from datetime import date, timedelta
-
+import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.zip_processing import process_zip
+import time
+
+import up42
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -20,10 +20,7 @@ ORDER_WORKERS = int(os.environ.get("ORDER_WORKERS", 3))
 
 
 def process_order(image_id: str, geometry: dict, input_path: str, catalog) -> dict:
-    """
-    Place an order via catalog.place_order(), wait for fulfillment,
-    then download each asset via asset.file.download(...).
-    """
+    """Place an order → poll until ready → download each asset."""
     try:
         logging.info(f"Processing order for image {image_id}")
 
@@ -45,23 +42,13 @@ def process_order(image_id: str, geometry: dict, input_path: str, catalog) -> di
 
         if order.status == "FAILED":
             logging.error(f"Order {order_id} failed")
-            return {
-                "order_id": order_id,
-                "image_id": image_id,
-                "status": "FAILED",
-                "assets_processed": 0
-            }
+            return {"order_id": order_id, "image_id": image_id, "status": "FAILED", "assets_processed": 0}
 
         # 3) Download assets (if any)
         assets = order.get_assets()
         logging.info(f"Order {order_id} fulfilled with {len(assets)} assets")
         if not assets:
-            return {
-                "order_id": order_id,
-                "image_id": image_id,
-                "status": "FULFILLED",
-                "assets_processed": 0
-            }
+            return {"order_id": order_id, "image_id": image_id, "status": "FULFILLED", "assets_processed": 0}
 
         os.makedirs(input_path, exist_ok=True)
         assets_processed = 0
@@ -71,58 +58,42 @@ def process_order(image_id: str, geometry: dict, input_path: str, catalog) -> di
 
         for asset in assets:
             try:
+                target = os.path.join(input_path, asset.file.name or f"{asset.asset_id}.dat")
+                logging.debug(f"Downloading asset to: {target}")
                 asset.file.download(input_path)
-                logging.info(f"Asset {asset.asset_id or asset.file.id} downloaded for order {order_id}")
+                if os.path.exists(target):
+                    logging.info(f"✔ Confirmed download of {target}")
+                else:
+                    logging.error(f"✖ Download claimed success but '{target}' is missing.")
                 assets_processed += 1
 
             except Exception as e:
-                logging.error(f"Error downloading asset {asset.asset_id or asset.file.id} for order {order_id}: {e}")
+                logging.exception(
+                    f"Error downloading asset {asset.asset_id or asset.file.id} for order {order_id}:\n{e}"
+                )
 
-        # (Optional) If you want to process zips immediately, uncomment:
-        # for fname in os.listdir(input_path):
-        #     if fname.endswith(".zip"):
-        #         try:
-        #             process_zip(os.path.join(input_path, fname))
-        #             logging.info(f"Processed zip {fname} for order {order_id}")
-        #         except Exception as e:
-        #             logging.error(f"Error processing {fname} for order {order_id}: {e}")
-
-        return {
-            "order_id": order_id,
-            "image_id": image_id,
-            "status": "FULFILLED",
-            "assets_processed": assets_processed
-        }
+        logging.info(f"After download in '{input_path}':\n  " + "  ".join(os.listdir(input_path)))
+        return {"order_id": order_id, "image_id": image_id, "status": "FULFILLED", "assets_processed": assets_processed}
 
     except Exception as e:
-        logging.error(f"Error in process_order for {image_id}: {e}")
-        return {
-            "image_id": image_id,
-            "status": "ERROR",
-            "error": str(e),
-            "assets_processed": 0
-        }
+        logging.exception(f"Error in process_order for {image_id}:\n{e}")
+        return {"image_id": image_id, "status": "ERROR", "error": "see logs", "assets_processed": 0}
 
 
 def download_from_up42(config_path):
-    """
-    Authenticate → search with catalog.construct_search_parameters →
-    place orders in parallel → download assets.
-    """
+    """Authenticate → search with catalog.construct_search_parameters → place orders in parallel → download assets."""
     try:
         if not os.path.exists(UP42_CRED_PATH):
             raise FileNotFoundError(f"Credentials file not found at {UP42_CRED_PATH}")
 
-        with open(UP42_CRED_PATH) as f:
+        with open(UP42_CRED_PATH, encoding="utf-8") as f:
             creds = json.load(f)
 
         up42.authenticate(username=creds["username"], password=creds["password"])
         logging.info("Successfully authenticated with UP42")
 
-        # Load configuration (GeoJSON, product_id)
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
-
         geom = config["features"][0]["geometry"]
         geometry = {"type": geom["type"], "coordinates": geom["coordinates"]}
         global PRODUCT_ID
@@ -131,44 +102,40 @@ def download_from_up42(config_path):
         date_of_interest = (date.today() - timedelta(days=DAYBEFORE)).strftime("%Y-%m-%d")
         logging.info(f"Date of interest is: {date_of_interest}")
 
-        # Initialize the old-style catalog entry-point
-        catalog = up42.initialize_catalog()  # DeprecationWarning: but still present
-
-        # Build search parameters and run search
+        catalog = up42.initialize_catalog()  # DeprecationWarning: but still present  TODO
         search_params = catalog.construct_search_parameters(
             collections=["sentinel-2"],
             geometry=geometry,
             start_date=date_of_interest,
             end_date=date_of_interest,
             max_cloudcover=100,
-            limit=10
+            limit=10,
         )
-        search_results_df = catalog.search(search_params)
-        logging.info(f"Found {len(search_results_df)} images matching criteria")
+        logging.debug(f"search_params: {search_params!r}")
+        logging.info("Running catalog.search()")
 
+        search_results_df = catalog.search(search_params)
+        logging.info(f"Found {len(search_results_df)} matching images")
         if search_results_df.empty:
             logging.info("No images found; exiting.")
             return
 
-        # –––––––––––––––––––––––––––––––––––––––––––––––––––
-        # only keep the first 2 rows for testing:
+        # only keep the first 2 for testing
         search_results_df = search_results_df.head(2)
         logging.info(f"Limiting to {len(search_results_df)} test images")
-        # –––––––––––––––––––––––––––––––––––––––––––––––––––
 
         # Launch each process_order(...) in parallel, passing `catalog` as last arg
         with concurrent.futures.ThreadPoolExecutor(max_workers=ORDER_WORKERS) as executor:
             futures = [
                 executor.submit(
                     process_order,
-                    row.id,        # image_id
-                    geometry,      # geometry
-                    INPUT_PATH,    # input_path
-                    catalog        # old-style catalog
+                    row.id,  # image_id
+                    geometry,  # geometry
+                    INPUT_PATH,  # input_path
+                    catalog,  # old-style
                 )
                 for row in search_results_df.itertuples()
             ]
-
             for idx, future in enumerate(concurrent.futures.as_completed(futures), start=1):
                 res = future.result()
                 logging.info(f"Progress: {idx}/{len(futures)} → {res}")
@@ -176,21 +143,21 @@ def download_from_up42(config_path):
         logging.info("All orders have been processed")
 
     except Exception as e:
-        logging.error(f"Error in download_from_up42: {e}")
+        logging.exception(f"Error in download_from_up42:\n{e}")
         raise
 
 
 if __name__ == "__main__":
     if not CONFIG_PATH:
         logging.error("CONFIG_PATH must be set as environment variable")
-        exit(1)
+        sys.exit(1)
 
     if not INPUT_PATH:
         logging.error("INPUT_PATH must be set as environment variable")
-        exit(1)
+        sys.exit(1)
 
     if not os.path.exists(CONFIG_PATH):
         logging.error(f"Config file not found at {CONFIG_PATH}")
-        exit(1)
+        sys.exit(1)
 
     download_from_up42(CONFIG_PATH)
