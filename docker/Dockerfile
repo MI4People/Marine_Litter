@@ -29,8 +29,8 @@ RUN mkdir -p /root/.cache/torch/hub/checkpoints
 RUN wget --no-check-certificate 'http://dalic.de/mi4people/epoch=54-val_loss=0.50-auroc=0.987.ckpt'
 RUN mv epoch=54-val_loss=0.50-auroc=0.987.ckpt /root/.cache/torch/hub/checkpoints/epoch=54-val_loss=0.50-auroc=0.987.ckpt
 
-ENV DAYBEFORE=2
-ENV PREDICTE_WORKERS=1
+ENV DAYS_BEFORE=2
+ENV PREDICT_WORKERS=1
 ENV ORDER_WORKERS=10
 ENV DEVICE="cpu"
 

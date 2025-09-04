@@ -1,18 +1,18 @@
 import concurrent.futures
-import subprocess
-import os
-import time
-import logging
-import shutil
-import json
 import datetime
+import json
+import logging
+import os
+import shutil
+import subprocess
+import time
 
 # Configure logging
-testing_format='%(asctime)s - %(levelname)s - %(message)s'
+testing_format = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=testing_format)
 
-DAYBEFORE = int(os.environ.get("DAYBEFORE", 2))
-PREDICTE_WORKERS = int(os.environ.get("PREDICTE_WORKERS", 1))
+DAYS_BEFORE = int(os.environ.get("DAYS_BEFORE", 2))
+PREDICT_WORKERS = int(os.environ.get("PREDICT_WORKERS", 1))
 DEVICE = os.environ.get("DEVICE", "cuda")
 DATES_PATH = os.getenv("DATES_PATH")
 INPUT_PATH = os.getenv("INPUT_PATH")
@@ -23,10 +23,7 @@ def run_command(command):
     """Run the command to process each image and log progress."""
     try:
         logging.info(f"Executing command: {command}")
-        process = subprocess.Popen(
-            command, shell=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         for line in process.stdout:
             logging.info(line.strip())
         process.wait()
@@ -69,7 +66,7 @@ def move_predictions(input_folder, output_folder):
 
 def update_dates_json(json_path, predicted_files):
     """Update JSON file with yesterday's date and provided predicted filenames without duplicates."""
-    yesterday = (datetime.date.today() - datetime.timedelta(days=DAYBEFORE)).isoformat()
+    yesterday = (datetime.date.today() - datetime.timedelta(days=DAYS_BEFORE)).isoformat()
 
     # Load or initialize JSON data
     if os.path.exists(json_path):
@@ -126,10 +123,9 @@ def main():
         return
 
     commands = [
-        f"marinedebrisdetector --device={DEVICE} {os.path.join(INPUT_PATH, tif_file)}"
-        for tif_file in tif_files
+        f"marinedebrisdetector --device={DEVICE} {os.path.join(INPUT_PATH, tif_file)}" for tif_file in tif_files
     ]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=PREDICTE_WORKERS) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=PREDICT_WORKERS) as executor:
         futures = [executor.submit(run_command, cmd) for cmd in commands]
         show_progress(futures)
     logging.info("All prediction commands have been executed.")

@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-DAYBEFORE     = int(os.environ.get("DAYBEFORE", 2))
+DAYS_BEFORE     = int(os.environ.get("DAYS_BEFORE", 2))
 CONFIG_PATH   = os.getenv("CONFIG_PATH")
 INPUT_PATH    = os.getenv("INPUT_PATH")
 UP42_CRED_PATH= os.getenv("UP42_CRED_PATH")
@@ -99,7 +99,7 @@ def download_from_up42(config_path):
         global PRODUCT_ID
         PRODUCT_ID = config.get("product_id", "c3de9ed8-f6e5-4bb5-a157-f6430ba756da")
 
-        date_of_interest = (date.today() - timedelta(days=DAYBEFORE)).strftime("%Y-%m-%d")
+        date_of_interest = (date.today() - timedelta(days=DAYS_BEFORE)).strftime("%Y-%m-%d")
         logging.info(f"Date of interest is: {date_of_interest}")
 
         catalog = up42.initialize_catalog()  # DeprecationWarning: but still present  TODO

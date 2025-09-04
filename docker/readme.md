@@ -1,4 +1,3 @@
-
 # Image Download and Prediction using UP42
 
 This project allows you to download satellite images using UP42 API and process them in parallel. The downloaded images are saved in the `images/downloaded` directory, and processed images will be saved in `images/predicted`. Meta data includes date and coordinates of image is saved in `src/resources/dates.json`.
@@ -6,7 +5,6 @@ This project allows you to download satellite images using UP42 API and process 
 ## Setup and Usage
 
 ### Requirements
-
 - Docker
 - Python 3.x
 - UP42 account and credentials, credentials should be saved in `secrets/up42_credentials.json`
@@ -14,24 +12,20 @@ This project allows you to download satellite images using UP42 API and process 
 - Google credentials in `secrets/google_credentials.json`
 
 ### Environment Variables
-
 - `CONFIG_PATH` - The path to `coordinates.json` containing coordinates.
 
 ### Build the Docker Image
-
 ```bash
 docker build -t marine_litter-image -f DockerFile .
 ```
 
 ### Run the Docker Image local for testing
-
 ```bash
-docker run —rm -e DAYBEFORE=2 -e PREDICTE_WORKERS=1 -e ORDER_WORKERS=1 -e DEVICE="cpu“ marine_litter-image
+docker run —rm -e DAYS_BEFORE=2 -e PREDICT_WORKERS=1 -e ORDER_WORKERS=1 -e DEVICE="cpu“ marine_litter-image
 ```
-
-- WORKERS: how many images analysis in parallel
+- ORDER_WORKERS: Number of parallel workers for ordering (download)
+- PREDICT_WORKERS: Number of parallel workers for prediction
 - DEVICE: cpu or cuda
-
 
 ### Sever requirements:
 - Install NVIDIA driver (was done by Bechtle)
@@ -39,7 +33,6 @@ docker run —rm -e DAYBEFORE=2 -e PREDICTE_WORKERS=1 -e ORDER_WORKERS=1 -e DEVI
 - Install Toolkit to use CUDA in container: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
 
 ### Set up routine running on server
-
 ```bash
 git clone https://github.com/MI4People/Marine_Litter /home/demo1/marine_litter_project/marine_litter
 ```
@@ -58,15 +51,7 @@ crontab -e
 0 10 * * * cd /home/demo1/marine_litter_project/marine_litter && docker-compose down
 ```
 
-
-
-
-
-
-
-
 ### Optional testing environment with conda
-
 Run the following in the terminal, preferably within your repo path:
 1. conda create --name marine_litter (python version could also be specified)
 2. conda activate marine_litter
