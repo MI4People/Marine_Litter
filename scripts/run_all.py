@@ -18,15 +18,15 @@ def execute_script(script_path, args=""):
 def main():
     # Define script paths with correct relative paths
     scripts = {
-        "order": "src/orderFromUp42_parallel.py",
-        "predict": "src/prediction.py",
-        "convert": "src/convert.py",
-        "upload_delete": "src/upload_delete.py"
+        "order": "scripts/up42_order_and_download.py",
+        "predict": "scripts/prediction.py",
+        "convert": "scripts/convert.py",
+        "upload_delete": "scripts/upload_delete.py"
     }
 
     # Environment variables for order
-    os.environ["CONFIG_PATH"] = "src/resources/config.geojson"
-    os.environ["DATES_PATH"] = "src/resources/dates.json"
+    os.environ["CONFIG_PATH"] = "resources/config.geojson"
+    os.environ["DATES_PATH"] = "resources/dates.json"
     os.environ["INPUT_PATH"] = "images/downloaded"
     os.environ["OUTPUT_PATH"] = "images/predicted"
     os.environ["UP42_CRED_PATH"] = "secrets/up42_credentials.json"
