@@ -10,10 +10,12 @@
 .vscode/
 __pycache__/
 _temp*/
+build/
 dist/
 secrets/
+site/
 
-**/.coverage
+*.coverage*
 *.lnk
 *.log
 *credentials.json
@@ -21,3 +23,4 @@ secrets/
 .secret
 .tif
 .up42
+secrets.env

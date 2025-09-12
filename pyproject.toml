@@ -1,0 +1,114 @@
+[project.urls]
+Changelog = "https://github.com/MI4People/Marine_Litter/release-notes"
+Documentation = "https://marine_litter.readthedocs.io/"
+Homepage = "https://www.mi4people.org/marinelitterdetectionviasatellites"
+Issues = "https://github.com/MI4People/Marine_Litter/issues"
+Repository = "https://github.com/MI4People/Marine_Litter"
+
+[project]
+authors = [
+    { name = "Denis Dalić", email = "denis.dalic@mi4people.org" }
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+description = "Marine Litter Detection via Satellites"
+license-files = ["LICENSE.txt"]
+name = "marine-litter"
+readme = "README.md"
+# Python 3.10 would need an older GDAL in Windows (or re-compile).
+# Python 3.12 is recommended in Docker to keep it simpler for GDAL in Ubuntu LTS.
+requires-python = ">=3.11"
+version = "0.1.1"
+
+dependencies = [
+    "google-cloud-storage",
+    "marinedebrisdetector",
+    "pydantic-settings",
+    "up42-py>=2.2,<3",
+]
+
+# Best install uv and ruff in addition to Python (globally, not in venv), e.g.
+#   - Windows: `winget install -e astral-sh.uv astral-sh.ruff`
+#   - macOS: `brew install uv ruff`
+#   - Linux: `pipx install uv ruff` (ensure pipx is available before)
+# isort and black will be done by ruff.
+[dependency-groups]
+build = ["hatch"]
+dev = [
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp311-cp311-win_amd64.whl; python_version=='3.11' and sys_platform == 'win32'",
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-mermaid2-plugin",
+    "pip-tools",  # for readthedocs, see 'docs/requirements.in'
+    "pytest",
+]
+dev2 = ["black[d]", "pipdeptree"]  # optional
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["marine_litter"]
+
+[tool.black]
+line-length = 120
+skip-magic-trailing-comma = false
+
+[tool.ruff]
+# Preferably only specify non-default values (also in later sub-sections),
+#   but defaults https://docs.astral.sh/ruff/configuration/ are quite lenient,
+#   e.g. lint.select = ["E4", "E7", "E9", "F"]
+#   while e.g. McCabe complexity check would be fine.
+
+cache-dir = ".ruff_cache"
+include = ["*.py"]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+# A     https://docs.astral.sh/ruff/rules/#flake8-builtins-a    # shadowing
+# B     https://docs.astral.sh/ruff/rules/#flake8-bugbear-b     # potential bugs, design issues
+# C90   https://docs.astral.sh/ruff/rules/#mccabe-c90           # McCabe complexity, s.a. PLR0912
+# E/W   https://docs.astral.sh/ruff/rules/#pycodestyle-e-w      # pycodestyle errors/warnings
+# F     https://docs.astral.sh/ruff/rules/#pyflakes-f           # pyflakes
+# I     https://docs.astral.sh/ruff/rules/#flake8-imports-i     # import sorting rules
+# N     https://docs.astral.sh/ruff/rules/#pep8-naming-n        # PEP8 naming
+# PERF  https://docs.astral.sh/ruff/rules/#perflint-perf        # performance
+# PL    https://docs.astral.sh/ruff/rules/#flake8-pyi-p         # pylint
+# Q     https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+ignore = [
+    "E731",  # lambda-assignment
+    "F402",  # shadows name from outer scope
+]
+select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "PERF",
+    "PL",
+]
+
+[tool.ruff.lint.isort]
+# use defaults https://docs.astral.sh/ruff/settings/#lintisort
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = [
+    "PLR2004",  # magic-value-comparison
+]
+
+[tool.ruff.lint.pylint]
+# use defaults https://docs.astral.sh/ruff/settings/#lintpysort
+
+[tool.pytest.ini_options]
+addopts = "--tb=short"
+pythonpath = "src"
