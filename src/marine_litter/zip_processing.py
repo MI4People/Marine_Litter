@@ -1,9 +1,10 @@
-import os
-import zipfile
 import glob
-import json
+import os
 import shutil
+import zipfile
+
 from osgeo import gdal
+
 
 def process_zip(zip_path):
     # Extract ZIP file
@@ -21,7 +22,7 @@ def process_zip(zip_path):
     if not os.path.exists(metadata_file):
         raise FileNotFoundError("metadata.xml not found in extracted files.")
 
-    with open(metadata_file, 'r') as meta:
+    with open(metadata_file, 'r', encoding='utf-8') as meta:
         metadata_content = meta.read()
         start_tag = '<TILE_ID metadataLevel="Brief">'
         end_tag = '</TILE_ID>'

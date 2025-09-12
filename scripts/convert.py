@@ -1,13 +1,12 @@
+import logging
 import os
 import subprocess
-import logging
-import tempfile
-import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 OUTPUT_PATH = os.getenv("OUTPUT_PATH")
+
 
 def convert_images(input_folder):
     """Convert all TIFF images in the input folder using gdal_translate."""
@@ -29,6 +28,7 @@ def convert_images(input_folder):
                 logging.error(f"Error converting file {file_name}: {e}")
                 if os.path.exists(temp_file):
                     os.remove(temp_file) 
+
 
 if __name__ == "__main__":
     if not os.path.exists(OUTPUT_PATH):

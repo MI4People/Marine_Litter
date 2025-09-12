@@ -1,10 +1,10 @@
 import concurrent.futures
-from datetime import date, timedelta
 import json
 import logging
 import os
 import sys
 import time
+from datetime import date, timedelta
 
 import up42
 
@@ -12,10 +12,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-DAYS_BEFORE     = int(os.environ.get("DAYS_BEFORE", 2))
-CONFIG_PATH   = os.getenv("CONFIG_PATH")
-INPUT_PATH    = os.getenv("INPUT_PATH")
-UP42_CRED_PATH= os.getenv("UP42_CRED_PATH")
+DAYS_BEFORE = int(os.environ.get("DAYS_BEFORE", 2))
+CONFIG_PATH = os.getenv("CONFIG_PATH")
+INPUT_PATH = os.getenv("INPUT_PATH")
+UP42_CRED_PATH = os.getenv("UP42_CRED_PATH")
 ORDER_WORKERS = int(os.environ.get("ORDER_WORKERS", 3))
 
 
@@ -35,7 +35,7 @@ def process_order(image_id: str, geometry: dict, input_path: str, catalog) -> di
         logging.info(f"Order {order_id} placed for image {image_id}")
 
         # 2) Poll until FULFILLED or FAILED
-        while order.status not in ("FULFILLED", "FAILED"):
+        while order.status not in {"FULFILLED", "FAILED"}:
             time.sleep(60)
             order.track_status(report_time=60)
             logging.info(f"Order {order_id} status: {order.status}")

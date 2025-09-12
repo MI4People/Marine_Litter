@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-import glob, os
+import glob
+import os
+
 from osgeo import gdal
 
 # ───────── PARAMETERS ─────────────────────────────────────────────────────────
-INPUT_PATTERN = "examples_for_merging/*prediction.tif" # that's where I put my samples
-TARGET_SRS    = "EPSG:4326" # standard parameter but can be changed
-PIXEL_SIZE    = 0.0000898315
-VRT_FILENAME  = "mosaic.vrt"
-OUTPUT_TIF    = "mosaic.tif"
-REPROJ_COPTS  = ["TILED=YES", "COMPRESS=DEFLATE", "BIGTIFF=YES"]
-FINAL_COPTS   = ["TILED=YES", "COMPRESS=DEFLATE",
+INPUT_PATTERN = "examples_for_merging/*prediction.tif"  # that's where I put my samples
+TARGET_SRS = "EPSG:4326"  # standard parameter but can be changed
+PIXEL_SIZE = 0.0000898315
+VRT_FILENAME = "mosaic.vrt"
+OUTPUT_TIF = "mosaic.tif"
+REPROJ_COPTS = ["TILED=YES", "COMPRESS=DEFLATE", "BIGTIFF=YES"]
+FINAL_COPTS = ["TILED=YES", "COMPRESS=DEFLATE",
                  "PREDICTOR=2", "BIGTIFF=YES", "COPY_SRC_OVERVIEWS=YES"]
 
 # 1) Reproject & resample each tile
@@ -31,12 +33,12 @@ for src in glob.glob(INPUT_PATTERN):
 # 2) Build the VRT (now with explicit xRes/yRes + tap)
 print(f"Building VRT: {VRT_FILENAME}")
 vrt_opts = gdal.BuildVRTOptions(
-    xRes                 = PIXEL_SIZE,      # required for targetAlignedPixels
-    yRes                 = PIXEL_SIZE,
-    resampleAlg          = "bilinear",      
-    targetAlignedPixels  = True,            
-    addAlpha             = True,            
-    VRTNodata            = "0 0 0"         
+    xRes=PIXEL_SIZE,      # required for targetAlignedPixels
+    yRes=PIXEL_SIZE,
+    resampleAlg="bilinear", 
+    targetAlignedPixels=True, 
+    addAlpha=True, 
+    VRTNodata="0 0 0"         
 )
 gdal.BuildVRT(VRT_FILENAME, reproj_files, options=vrt_opts)
 

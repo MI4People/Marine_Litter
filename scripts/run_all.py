@@ -1,9 +1,10 @@
+import logging
 import os
 import subprocess
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def execute_script(script_path, args=""):
     """Executes a given Python script with optional arguments."""
@@ -14,6 +15,7 @@ def execute_script(script_path, args=""):
         logging.info(f"Successfully executed: {script_path}")
     except subprocess.CalledProcessError as e:
         logging.error(f"Error executing {script_path}: {e}")
+
 
 def main():
     # Define script paths with correct relative paths
@@ -44,6 +46,7 @@ def main():
     logging.info("--------------Upload and Delete Images--------------")
     execute_script(scripts["upload_delete"])
     logging.info("--------------Workflow completed successfully.--------------")
+
 
 if __name__ == "__main__":
     main()

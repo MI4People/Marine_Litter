@@ -70,7 +70,7 @@ def update_dates_json(json_path, predicted_files):
 
     # Load or initialize JSON data
     if os.path.exists(json_path):
-        with open(json_path, "r") as json_file:
+        with open(json_path, "r", encoding="utf-8") as json_file:
             try:
                 json_data = json.load(json_file)
             except json.JSONDecodeError:
@@ -91,7 +91,7 @@ def update_dates_json(json_path, predicted_files):
     json_data[yesterday] = sorted(set(json_data[yesterday]))
 
     # Write out
-    with open(json_path, "w") as json_file:
+    with open(json_path, "w", encoding="utf-8") as json_file:
         json.dump(json_data, json_file, indent=4)
 
     logging.info(f"Updated JSON for {yesterday} with files: {predicted_files}")

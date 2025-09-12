@@ -1,14 +1,16 @@
-import os
 import logging
+import os
+
 from google.cloud import storage
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-DATES_PATH       = os.getenv("DATES_PATH")
+DATES_PATH = os.getenv("DATES_PATH")
 GOOGLE_CRED_PATH = os.getenv("GOOGLE_CRED_PATH")
-BUCKET_NAME      = os.getenv("BUCKET_NAME")
-OUTPUT_PATH      = os.getenv("OUTPUT_PATH")
+BUCKET_NAME = os.getenv("BUCKET_NAME")
+OUTPUT_PATH = os.getenv("OUTPUT_PATH")
+
 
 def upload_delete(bucket_name, source_folder, extra_file, credential):
     try:
@@ -21,7 +23,7 @@ def upload_delete(bucket_name, source_folder, extra_file, credential):
             return
 
         # Upload & Delete aller Dateien aus source_folder
-        for root, dirs, files in os.walk(source_folder):
+        for root, _dirs, files in os.walk(source_folder):
             for file in files:
                 source_file_path = os.path.join(root, file)
                 destination_blob = os.path.relpath(source_file_path, source_folder).replace("\\", "/")
@@ -61,6 +63,7 @@ def upload_delete(bucket_name, source_folder, extra_file, credential):
 
     except Exception as e:
         logging.critical(f"Error initializing storage client: {e}")
+
 
 if __name__ == "__main__":
     upload_delete(
