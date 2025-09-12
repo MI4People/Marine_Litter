@@ -7,21 +7,22 @@ This project allows you to download satellite images using UP42 API and process 
 ### Requirements
 - Docker
 - Python 3.x
-- UP42 account and credentials, credentials should be saved in `secrets/up42_credentials.json`
-`e.g. {username:"username", password:"pwd"}`
-- Google credentials in `secrets/google_credentials.json`
+- UP42 account and credentials like `{username:"user", password:"pwd"}` in 'secrets/up42_credentials.json' 
+- Google credentials in 'secrets/google_credentials.json'
 
 ### Environment Variables
-- `CONFIG_PATH` - The path to `coordinates.json` containing coordinates.
+- `CONFIG_PATH` - The path to 'coordinates.json' containing coordinates.
 
-### Build the Docker Image
+### Build and Run the Docker Image
+Call (best from project root to take .dockerignore into account) Docker commands such as:
 ```bash
-docker build -t marine_litter-image -f DockerFile .
+docker build -f docker/Dockerfile -t marine_litter .
+docker run —-rm -e DAYS_BEFORE=2 -e ORDER_WORKERS=1 -e PREDICT_WORKERS=1 -e DEVICE=cpu marine_litter
 ```
-
-### Run the Docker Image local for testing
+or
 ```bash
-docker run —rm -e DAYS_BEFORE=2 -e PREDICT_WORKERS=1 -e ORDER_WORKERS=1 -e DEVICE="cpu“ marine_litter-image
+docker build -f docker/osgeo.dockerfile --progress=plain -t ml_osgeo .
+docker run —-rm -e DAYS_BEFORE=2 -e ORDER_WORKERS=8 -e PREDICT_WORKERS=4 -e DEVICE=cuda ml_osgeo
 ```
 - ORDER_WORKERS: Number of parallel workers for ordering (download)
 - PREDICT_WORKERS: Number of parallel workers for prediction
