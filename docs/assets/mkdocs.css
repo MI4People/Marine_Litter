@@ -1,0 +1,10 @@
+/* navigation sidebar: color external links same as internal ones
+- `typeset-a` for `<a/>` tag
+- `accent-fg` for hover effect
+*/
+.md-nav--primary .md-nav__item .md-nav__link[href^="http"] {
+  color: var(--md-typeset-a-color) !important;
+}
+.md-nav--primary .md-nav__item .md-nav__link[href^="http"]:hover {
+  color: var(--md-accent-fg-color) !important;
+}
