@@ -2,31 +2,29 @@ import concurrent.futures
 import json
 import logging
 import os
-import sys
 import time
 from datetime import date, timedelta
+from pathlib import Path
 
-import up42
+from urllib3.exceptions import ReadTimeoutError
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+try:
+    import up42  # strangely goes online for version check. Trying again in case of a timeout may help.
+except ReadTimeoutError:
+    import up42
+from up42 import Catalog
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-DAYS_BEFORE = int(os.environ.get("DAYS_BEFORE", 2))
-CONFIG_PATH = os.getenv("CONFIG_PATH")
-INPUT_PATH = os.getenv("INPUT_PATH")
-UP42_CRED_PATH = os.getenv("UP42_CRED_PATH")
-ORDER_WORKERS = int(os.environ.get("ORDER_WORKERS", 3))
+from marine_litter.ml_settings import MLSettings
 
 
-def process_order(image_id: str, geometry: dict, input_path: str, catalog) -> dict:
-    """Place an order → poll until ready → download each asset."""
+def process_order(image_id: str, geometry: dict, input_path: str, catalog: Catalog, product_id: str) -> dict:
+    """Call catalog.place_order(), wait for fulfillment, then download each via asset.file.download()."""
     try:
         logging.info(f"Processing order for image {image_id}")
 
         # 1) Build and place order
         order_params = catalog.construct_order_parameters(
-            data_product_id=PRODUCT_ID,
+            data_product_id=product_id,
             image_id=image_id,
             aoi=geometry,
         )
@@ -50,59 +48,58 @@ def process_order(image_id: str, geometry: dict, input_path: str, catalog) -> di
         if not assets:
             return {"order_id": order_id, "image_id": image_id, "status": "FULFILLED", "assets_processed": 0}
 
-        os.makedirs(input_path, exist_ok=True)
+        Path(input_path).mkdir(parents=True, exist_ok=True)
         assets_processed = 0
-
-        # Silence tqdm (if used internally)
-        logging.getLogger("tqdm").setLevel(logging.ERROR)
-
-        for asset in assets:
-            try:
-                target = os.path.join(input_path, asset.file.name or f"{asset.asset_id}.dat")
-                logging.debug(f"Downloading asset to: {target}")
-                asset.file.download(input_path)
-                if os.path.exists(target):
-                    logging.info(f"✔ Confirmed download of {target}")
-                else:
-                    logging.error(f"✖ Download claimed success but '{target}' is missing.")
+        logging.getLogger("tqdm").setLevel(logging.ERROR)  # silence tqdm   TODO fix
+        asset = None
+        try:
+            for asset in assets:
+                asset.file.download(input_path)  # TODO deprecated
+                logging.info(f"'{image_id}' downloaded for order {order_id}")
                 assets_processed += 1
+        except Exception as e:
+            logging.exception(f"Error downloading '{image_id}' for order {order_id}: {e}")
 
-            except Exception as e:
-                logging.exception(
-                    f"Error downloading asset {asset.asset_id or asset.file.id} for order {order_id}:\n{e}"
-                )
+        logging.info(f"Directory snapshot after downloads: {os.listdir(input_path)}")
 
-        logging.info(f"After download in '{input_path}':\n  " + "  ".join(os.listdir(input_path)))
         return {"order_id": order_id, "image_id": image_id, "status": "FULFILLED", "assets_processed": assets_processed}
 
     except Exception as e:
-        logging.exception(f"Error in process_order for {image_id}:\n{e}")
+        logging.exception(f"Error in process_order() for {image_id} ({e})")
         return {"image_id": image_id, "status": "ERROR", "error": "see logs", "assets_processed": 0}
 
 
-def download_from_up42(config_path):
-    """Authenticate → search with catalog.construct_search_parameters → place orders in parallel → download assets."""
-    try:
-        if not os.path.exists(UP42_CRED_PATH):
-            raise FileNotFoundError(f"Credentials file not found at {UP42_CRED_PATH}")
+def run_order_and_download_from_up42(settings: MLSettings = None):
+    """Workflow step: authenticate, search, order, and download images from UP42."""
+    if settings is None:
+        settings = MLSettings()
+    logging.basicConfig(level=settings.log_level, format=settings.log_format)
+    logging.info(10 * "-" + " Run order and download images")
 
-        with open(UP42_CRED_PATH, encoding="utf-8") as f:
+    try:
+        up42_cred_path = Path(settings.up42_cred_path)
+        config_path = Path(settings.config_path)
+        input_path = Path(settings.input_path)
+        if not up42_cred_path.exists():
+            raise FileNotFoundError(f"Credentials file not found at {up42_cred_path}")
+
+        with up42_cred_path.open(encoding="utf-8") as f:
             creds = json.load(f)
 
         up42.authenticate(username=creds["username"], password=creds["password"])
         logging.info("Successfully authenticated with UP42")
 
-        with open(config_path, encoding="utf-8") as f:
+        with config_path.open(encoding="utf-8") as f:
             config = json.load(f)
+
         geom = config["features"][0]["geometry"]
         geometry = {"type": geom["type"], "coordinates": geom["coordinates"]}
-        global PRODUCT_ID
-        PRODUCT_ID = config.get("product_id", "c3de9ed8-f6e5-4bb5-a157-f6430ba756da")
+        product_id = config.get("product_id", settings.product_id)
 
-        date_of_interest = (date.today() - timedelta(days=DAYS_BEFORE)).strftime("%Y-%m-%d")
+        date_of_interest = (date.today() - timedelta(days=settings.days_before)).strftime("%Y-%m-%d")
         logging.info(f"Date of interest is: {date_of_interest}")
 
-        catalog = up42.initialize_catalog()  # DeprecationWarning: but still present  TODO
+        catalog = up42.initialize_catalog()
         search_params = catalog.construct_search_parameters(
             collections=["sentinel-2"],
             geometry=geometry,
@@ -111,31 +108,25 @@ def download_from_up42(config_path):
             max_cloudcover=100,
             limit=10,
         )
-        logging.debug(f"search_params: {search_params!r}")
-        logging.info("Running catalog.search()")
-
-        search_results_df = catalog.search(search_params)
-        logging.info(f"Found {len(search_results_df)} matching images")
+        search_results_df = catalog.search(search_params)  # TODO deprecated
+        logging.info(f"Found {len(search_results_df)} images matching criteria")
         if search_results_df.empty:
             logging.info("No images found; exiting.")
             return
 
-        # only keep the first 2 for testing
-        search_results_df = search_results_df.head(2)
-        logging.info(f"Limiting to {len(search_results_df)} test images")
-
-        # Launch each process_order(...) in parallel, passing `catalog` as last arg
-        with concurrent.futures.ThreadPoolExecutor(max_workers=ORDER_WORKERS) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=settings.order_workers) as executor:
             futures = [
                 executor.submit(
                     process_order,
-                    row.id,  # image_id
-                    geometry,  # geometry
-                    INPUT_PATH,  # input_path
-                    catalog,  # old-style
+                    getattr(row, "id", row[1]),
+                    geometry,
+                    str(input_path),
+                    catalog,
+                    product_id,
                 )
                 for row in search_results_df.itertuples()
             ]
+
             for idx, future in enumerate(concurrent.futures.as_completed(futures), start=1):
                 res = future.result()
                 logging.info(f"Progress: {idx}/{len(futures)} → {res}")
@@ -143,21 +134,9 @@ def download_from_up42(config_path):
         logging.info("All orders have been processed")
 
     except Exception as e:
-        logging.exception(f"Error in download_from_up42:\n{e}")
+        logging.error(f"Error in download_from_up42: {e}")
         raise
 
 
 if __name__ == "__main__":
-    if not CONFIG_PATH:
-        logging.error("CONFIG_PATH must be set as environment variable")
-        sys.exit(1)
-
-    if not INPUT_PATH:
-        logging.error("INPUT_PATH must be set as environment variable")
-        sys.exit(1)
-
-    if not os.path.exists(CONFIG_PATH):
-        logging.error(f"Config file not found at {CONFIG_PATH}")
-        sys.exit(1)
-
-    download_from_up42(CONFIG_PATH)
+    run_order_and_download_from_up42()

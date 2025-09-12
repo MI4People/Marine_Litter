@@ -5,7 +5,7 @@ var position;
 // TO-DO add var for zoom coordinates and timepoints where litter is visible
 var regionArray = {
   'Durban': {
-    'timepoints':['2019-04-19','2019-04-24','2019-04-29'], 
+    'timepoints':['2019-04-19','2019-04-24','2019-04-29'],
     'imageName':[durban190419, durban190425, durban190429],
     'story': 'Flood event on 22nd and 23rd of April 2019 in this region.',
     'pickDate': ['2019-04-24'],
@@ -32,7 +32,7 @@ var title = ui.Label({
   }
 });
 
-// General description 
+// General description
 var description = ui.Label({
   value: 'This prototype leverages artificial intelligence (AI) to identify marine litter across various geographic regions. The used AI is based on research published in "Identifying Marine Litter with Deep Learning Techniques" (https://doi.org/10.1016/j.isci.2023.108402) and implemented with code from GitHub. Developed by MI4People, the tool aims to facilitate the monitoring and management of marine environments by providing an intuitive interface for the visualization of litter distribution. Users can explore different regions and time points to assess changes and trends. Additionally, the "Layers" function, located at the top right corner of the map, allows users to toggle the visibility of individual map layers for a customized viewing experience. Predicted marine litter is highlighted in red.',
   style: {
@@ -73,7 +73,7 @@ var dropdown = ui.Select({
   }
 });
 
-// General description 
+// General description
 var storyText = ui.Label({
   value: 'Story behind the region.',
   style: {
@@ -142,20 +142,20 @@ ui.root.add(sidebar);
 ui.root.add(map);
 
 // init show
-dropdown.setValue(Object.keys(regionArray)[0], true); 
+dropdown.setValue(Object.keys(regionArray)[0], true);
 
 
 function showImage(maskLayer, startTime, endTime, position) {
   map.layers().reset();
-  
+
   var frame = maskLayer.geometry();
   var aoi = ee.Geometry.Polygon(frame.coordinates());
-  
+
   var dataset = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
   .filterBounds(aoi)
   .filterDate(startTime, endTime)
   .select(['B4', 'B3', 'B2']);
-  
+
   var meanImage = dataset.mean();
   var rescale = meanImage.divide(10000);
   var clipImage = rescale.clip(aoi);
@@ -163,7 +163,7 @@ function showImage(maskLayer, startTime, endTime, position) {
   var visParam = {bands: ["B4", "B3", "B2"], min: 0, max: 0.4};
   map.addLayer(clipImage, visParam, "Sentinel-2-Image");
 
-  var mask = maskLayer.gt(100); 
+  var mask = maskLayer.gt(100);
   var maskedImage = maskLayer.updateMask(mask);
   map.addLayer(maskedImage, {min: 0, max: 237, palette: ['green', 'red']}, 'Marine Litter');
 
@@ -176,15 +176,15 @@ function showImage(maskLayer, startTime, endTime, position) {
 
 function getAdjacentDates(inputDate) {
   var date = new Date(inputDate);
-  
+
   var dateBefore = new Date(date);
   dateBefore.setDate(date.getDate() - 1);
   var dateBeforeString = dateBefore.toISOString().split('T')[0];
-  
+
   var dateAfter = new Date(date);
   dateAfter.setDate(date.getDate() + 1);
   var dateAfterString = dateAfter.toISOString().split('T')[0];
-  
+
   return {
     startTime: dateBeforeString,
     endTime: dateAfterString

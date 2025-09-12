@@ -22,7 +22,7 @@ Install these like
 For development, Python should be used in a [venv](https://docs.python.org/3/library/venv.html).
 This is done by `uv` automatically into project root `.venv/`, when not called with `--active`.
 ```bash
-# get dependencies including pytest etc. 
+# get dependencies including pytest etc.
 uv sync
 ```
 
@@ -124,7 +124,7 @@ The standard usage to test changes is to start a local documentation server, whi
 ```bash
 mkdocs serve -a 127.0.0.1:8001
 ```
-You could also create, or update a documentation 'site/' (git-ignored) by calling `mkdocs build`. 
+You could also create, or update a documentation 'site/' (git-ignored) by calling `mkdocs build`.
 
 ### Read the Docs
 To publish the documentation, Read the Docs needs 'docs/requirements.txt',

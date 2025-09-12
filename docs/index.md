@@ -9,7 +9,7 @@ Our AI model is designed to detect trash in the ocean using satellite imagery.
 By analyzing these images, the model identifies areas heavily impacted by marine debris, enabling targeted clean-up
 efforts and contributing to marine conservation.
 This innovative approach aims to enhance the efficiency of environmental protection measures, providing a scalable
-solution to one of the pressing challenges our oceans face today. 
+solution to one of the pressing challenges our oceans face today.
 
 There is a live demo **prototype** at
 [Google Earth Engine Apps](https://mi4people.projects.earthengine.app/view/marine-litter),

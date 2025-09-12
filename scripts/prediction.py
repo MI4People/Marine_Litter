@@ -2,21 +2,12 @@ import concurrent.futures
 import datetime
 import json
 import logging
-import os
 import shutil
 import subprocess
 import time
+from pathlib import Path
 
-# Configure logging
-testing_format = "%(asctime)s - %(levelname)s - %(message)s"
-logging.basicConfig(level=logging.INFO, format=testing_format)
-
-DAYS_BEFORE = int(os.environ.get("DAYS_BEFORE", 2))
-PREDICT_WORKERS = int(os.environ.get("PREDICT_WORKERS", 1))
-DEVICE = os.environ.get("DEVICE", "cuda")
-DATES_PATH = os.getenv("DATES_PATH")
-INPUT_PATH = os.getenv("INPUT_PATH")
-OUTPUT_PATH = os.getenv("OUTPUT_PATH")
+from marine_litter.ml_settings import MLSettings
 
 
 def run_command(command):
@@ -49,28 +40,26 @@ def show_progress(futures):
 
 
 def move_predictions(input_folder, output_folder):
-    """Move predicted files from input folder to output folder and return moved filenames."""
+    input_folder = Path(input_folder)
+    output_folder = Path(output_folder)
     moved_files = []
-    for file_name in os.listdir(input_folder):
-        if file_name.endswith("_prediction.tif"):
-            src_path = os.path.join(input_folder, file_name)
-            dst_path = os.path.join(output_folder, file_name)
+    for file_path in input_folder.iterdir():
+        if file_path.name.endswith("_prediction.tif"):
+            dst_path = output_folder / file_path.name
             try:
-                shutil.move(src_path, dst_path)
-                moved_files.append(file_name)
-                logging.info(f"Moved prediction {file_name} to {output_folder}")
+                shutil.move(str(file_path), str(dst_path))
+                moved_files.append(file_path.name)
+                logging.info(f"Moved prediction {file_path.name} to {output_folder}")
             except Exception as e:
-                logging.error(f"Failed to move {file_name}: {e}")
+                logging.error(f"Failed to move {file_path.name}: {e}")
     return moved_files
 
 
-def update_dates_json(json_path, predicted_files):
-    """Update JSON file with yesterday's date and provided predicted filenames without duplicates."""
-    yesterday = (datetime.date.today() - datetime.timedelta(days=DAYS_BEFORE)).isoformat()
-
-    # Load or initialize JSON data
-    if os.path.exists(json_path):
-        with open(json_path, "r", encoding="utf-8") as json_file:
+def update_dates_json(json_path, predicted_files, days_before):
+    json_path = Path(json_path)
+    yesterday = (datetime.date.today() - datetime.timedelta(days=days_before)).isoformat()
+    if json_path.exists():
+        with json_path.open("r", encoding="utf-8") as json_file:
             try:
                 json_data = json.load(json_file)
             except json.JSONDecodeError:
@@ -78,69 +67,52 @@ def update_dates_json(json_path, predicted_files):
                 json_data = {}
     else:
         json_data = {}
-
-    # Ensure bucket for yesterday exists
     json_data.setdefault(yesterday, [])
-
-    # Append only new files for that date
     for file in predicted_files:
         if file not in json_data[yesterday]:
             json_data[yesterday].append(file)
-
-    # Deduplicate and sort
     json_data[yesterday] = sorted(set(json_data[yesterday]))
-
-    # Write out
-    with open(json_path, "w", encoding="utf-8") as json_file:
+    with json_path.open("w", encoding="utf-8") as json_file:
         json.dump(json_data, json_file, indent=4)
-
     logging.info(f"Updated JSON for {yesterday} with files: {predicted_files}")
 
 
 def clean_input_folder(input_folder):
-    """Delete all files in the input folder after processing."""
+    input_folder = Path(input_folder)
     try:
-        for file_name in os.listdir(input_folder):
-            file_path = os.path.join(input_folder, file_name)
-            os.remove(file_path)
-            logging.info(f"Deleted: {file_name}")
+        for file_path in input_folder.iterdir():
+            file_path.unlink()
+            logging.info(f"Deleted: {file_path.name}")
         logging.info("All input files deleted successfully.")
     except Exception as e:
         logging.error(f"Error while deleting files from input folder: {e}")
 
 
-def main():
-    # Ensure output folder is fresh
-    if os.path.exists(OUTPUT_PATH):
-        shutil.rmtree(OUTPUT_PATH)
-        logging.info(f"Cleared existing output directory: {OUTPUT_PATH}")
-    os.makedirs(OUTPUT_PATH, exist_ok=True)
-    logging.info(f"Created output directory: {OUTPUT_PATH}")
+def run_prediction(settings: MLSettings = None):
+    if settings is None:
+        settings = MLSettings()
+    logging.basicConfig(level=settings.log_level, format=settings.log_format)
+    logging.info(10 * "-" + " Run prediction on images")
 
-    tif_files = [f for f in os.listdir(INPUT_PATH) if f.endswith(".tif")]
+    output_path = Path(settings.output_path)
+    input_path = Path(settings.input_path)
+    if output_path.exists():
+        shutil.rmtree(output_path)
+        logging.info(f"Cleared existing output directory: {output_path}")
+    output_path.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Created output directory: {output_path}")
+    tif_files = [f for f in input_path.iterdir() if f.name.endswith(".tif")]
     if not tif_files:
         logging.warning("No TIFF files found in the input directory.")
         return
-
-    commands = [
-        f"marinedebrisdetector --device={DEVICE} {os.path.join(INPUT_PATH, tif_file)}" for tif_file in tif_files
-    ]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=PREDICT_WORKERS) as executor:
+    commands = [f"marinedebrisdetector --device={settings.device} {str(tif_file)}" for tif_file in tif_files]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=settings.predict_workers) as executor:
         futures = [executor.submit(run_command, cmd) for cmd in commands]
         show_progress(futures)
-    logging.info("All prediction commands have been executed.")
-
-    # Move predicted images and capture filenames
-    moved_files = move_predictions(INPUT_PATH, OUTPUT_PATH)
-
-    # Update JSON with only today's predictions
-    update_dates_json(DATES_PATH, moved_files)
-
-    # Clean up input folder
-    clean_input_folder(INPUT_PATH)
-
-    logging.info("Workflow completed successfully.")
+    moved_files = move_predictions(input_path, output_path)
+    update_dates_json(settings.dates_path, moved_files, settings.days_before)
+    clean_input_folder(input_path)
 
 
 if __name__ == "__main__":
-    main()
+    run_prediction()

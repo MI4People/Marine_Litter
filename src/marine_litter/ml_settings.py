@@ -5,7 +5,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
-DFT_PRODUCT_ID = "c3de9ed8-f6e5-4bb5-a157-f6430ba756da"
+DFT_PRODUCT_ID = "1234abcd-4321-cdef-fedc-1234567890ab"
 
 
 class MLSettings(BaseSettings):
@@ -19,9 +19,10 @@ class MLSettings(BaseSettings):
       - explicit parameters (passed to the constructor)
     See documentation https://docs.pydantic.dev/latest/concepts/pydantic_settings/
     """
+
     # Logging
     log_level: str = Field(default="WARNING")
-    log_format: str = Field(default="%(asctime)s - %(levelname)s - %(message)s")
+    log_format: str = Field(default="%(message)-120s|%(levelname).1s %(asctime)s %(filename)s:%(lineno)d")
 
     # Paths
     config_path: Path = Field(default=Path("resources/config.geojson"), description="GeoJSON config file")
@@ -41,3 +42,6 @@ class MLSettings(BaseSettings):
 
     def __init__(self, env_file: str | None = None):
         super().__init__(_env_prefix="ML_", _env_file=env_file, _env_file_encoding="utf-8")
+
+    def __str__(self) -> str:
+        return "\n".join(f"  {k:16}: {repr(v)}" for k, v in self.model_dump().items())

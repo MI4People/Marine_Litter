@@ -1,52 +1,36 @@
 import logging
-import os
-import subprocess
+from argparse import ArgumentParser, BooleanOptionalAction, HelpFormatter, Namespace
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from convert import run_convert
+from prediction import run_prediction
+from up42_order_and_download import run_order_and_download_from_up42
+from upload_delete import run_upload_delete
 
+from marine_litter.ml_settings import MLSettings
 
-def execute_script(script_path, args=""):
-    """Executes a given Python script with optional arguments."""
-    try:
-        command = f"python {script_path} {args}"
-        logging.info(f"Executing: {command}")
-        subprocess.run(command, shell=True, check=True)
-        logging.info(f"Successfully executed: {script_path}")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error executing {script_path}: {e}")
+logg = logging.getLogger(__name__)
 
 
-def main():
-    # Define script paths with correct relative paths
-    scripts = {
-        "order": "scripts/up42_order_and_download.py",
-        "predict": "scripts/prediction.py",
-        "convert": "scripts/convert.py",
-        "upload_delete": "scripts/upload_delete.py"
-    }
+def run_all():
+    ap = ArgumentParser(description=__doc__, formatter_class=lambda prog: HelpFormatter(prog, max_help_position=40))
+    ap.add_argument("-l", "--log", default="INFO", help="DEBUG, INFO, WARNING, ERROR, CRITICAL, default: INFO")
+    ap.add_argument("-d", "--dry-run", action=BooleanOptionalAction, default=False, help="just echo command")
+    args: Namespace = ap.parse_args()
 
-    # Environment variables for order
-    os.environ["CONFIG_PATH"] = "resources/config.geojson"
-    os.environ["DATES_PATH"] = "resources/dates.json"
-    os.environ["INPUT_PATH"] = "images/downloaded"
-    os.environ["OUTPUT_PATH"] = "images/predicted"
-    os.environ["UP42_CRED_PATH"] = "secrets/up42_credentials.json"
-    os.environ["GOOGLE_CRED_PATH"] = "secrets/google_credentials.json"
-    os.environ["BUCKET_NAME"] = "marinelitter_predicted"
+    settings = MLSettings()
+    settings.log_level = args.log
+    logging.basicConfig(level=settings.log_level, format=settings.log_format)
 
-    # Execute scripts in sequence
-    logging.info("--------------Starting workflow--------------")
-    logging.info("--------------Order and Download Images--------------")
-    execute_script(scripts["order"])
-    logging.info("--------------Analyse Images--------------")
-    execute_script(scripts["predict"])
-    logging.info("--------------Convert Images--------------")
-    execute_script(scripts["convert"])
-    logging.info("--------------Upload and Delete Images--------------")
-    execute_script(scripts["upload_delete"])
-    logging.info("--------------Workflow completed successfully.--------------")
+    logging.info(10 * "=" + " Starting workflow")
+    if args.dry_run:
+        logging.info(f"dry run with settings:\n{settings}")
+    else:
+        run_order_and_download_from_up42(settings)
+        run_prediction(settings)
+        run_convert(settings)
+        run_upload_delete(settings)
+    logging.info(10 * "=" + " Workflow completed")
 
 
 if __name__ == "__main__":
-    main()
+    run_all()
