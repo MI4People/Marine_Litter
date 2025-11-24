@@ -25,10 +25,13 @@ requires-python = ">=3.11"
 version = "0.1.1"
 
 dependencies = [
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp311-cp311-win_amd64.whl; python_version=='3.11' and sys_platform == 'win32'",
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
     "google-cloud-storage",
-    "marinedebrisdetector",
+    "marinedebrisdetector",  # TODO minize to needed (not ML training ones)
     "pydantic-settings",
-    "up42-py>=2.2,<3",
+    "up42-py>=2.6,<3",  # TODO v3 migration
 ]
 
 # Best install uv and ruff in addition to Python (globally, not in venv), e.g.
@@ -37,25 +40,23 @@ dependencies = [
 #   - Linux: `pipx install uv ruff` (ensure pipx is available before)
 # isort and black will be done by ruff.
 [dependency-groups]
-build = ["hatch"]
 dev = [
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp311-cp311-win_amd64.whl; python_version=='3.11' and sys_platform == 'win32'",
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
     "mkdocs",
     "mkdocs-material",
     "mkdocs-mermaid2-plugin",
     "pip-tools",  # for readthedocs, see 'docs/requirements.in'
-    "pytest",
+    "pytest-cov",
+    "pytest-sugar",
+    "uv_build",
 ]
 dev2 = ["black[d]", "pipdeptree"]  # optional
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build"]
+build-backend = "uv_build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["marine_litter"]
+[tool.uv.build-backend]
+module-name = ["marine_litter"]
 
 [tool.black]
 line-length = 120
@@ -111,4 +112,4 @@ select = [
 
 [tool.pytest.ini_options]
 addopts = "--tb=short"
-pythonpath = "src"
+pythonpath = ["src"]
