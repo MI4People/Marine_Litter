@@ -29,7 +29,7 @@ dependencies = [
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
     "google-cloud-storage",
-    "marinedebrisdetector",  # TODO minize to needed (not ML training ones)
+    "marinedebrisdetector",  # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
     "pydantic-settings",
     "up42-py>=2.6,<3",  # TODO v3 migration
 ]
@@ -47,6 +47,7 @@ dev = [
     "pip-tools",  # for readthedocs, see 'docs/requirements.in'
     "pytest-cov",
     "pytest-sugar",
+    "ty",
     "uv_build",
 ]
 dev2 = ["black[d]", "pipdeptree"]  # optional
