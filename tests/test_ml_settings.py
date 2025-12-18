@@ -1,28 +1,37 @@
 import logging
+import re
 from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
 
 from marine_litter.ml_settings import MLSettings
 
+log = logging.getLogger(__name__)
+
 
 def test_settings_defaults():
-    # Ensure all fields are tested
+    # Ensure all fields are tested (vs. `MLSettings` defaults)
     tested_fields = {
         "log_level": "WARNING",
-        "log_format": "%(message)-120s|%(levelname).1s %(asctime)s %(filename)s:%(lineno)d",
+        "log_format": "%(message)-100s |%(levelname).1s %(asctime)s %(filename)s:%(lineno)d",
         # Paths
+        "checkpoint_file": "",
+        "checkpoints": Path("~/.cache/torch/hub/checkpoints").expanduser(),
         "config_path": Path("resources/config.geojson"),
         "dates_path": Path("resources/dates.json"),
-        "google_cred_path": Path("secrets/google_credentials.json"),
         "input_path": Path("images/downloaded"),
         "output_path": Path("images/predicted"),
-        "up42_cred_path": Path("secrets/up42_credentials.json"),
+        #   extra
+        "google_creds_path": Path("secrets/google_credentials.json"),
+        "up42_creds_path": Path("secrets/up42_credentials.json"),
         # Processing
         "bucket_name": "marinelitter_predicted",
         "days_before": 2,
-        "product_id": "1234abcd-4321-cdef-fedc-1234567890ab",
         "device": "cpu",
         "order_workers": 3,
         "predict_workers": 1,
+        "product_id": "1234abcd-4321-cdef-fedc-1234567890ab",
     }
     missing_fields = set(MLSettings.model_fields.keys()) - set(tested_fields.keys())
     assert not missing_fields, f"Missing in test fields: {missing_fields}"
@@ -35,29 +44,58 @@ def test_settings_defaults():
         actual_value = getattr(settings, field_name)
         assert actual_value == expected_value, f"Field '{field_name}': expected {expected_value}, got {actual_value}"
 
-    # Test a use of the settings
-    logging.basicConfig(level=settings.log_level, format=settings.log_format)
-    logging.getLogger().info("Just a test log message")
+
+def test_missing_env_file_raises_file_not_found_error():
+    with pytest.raises(FileNotFoundError):
+        MLSettings(env_file="non_existent.env")
 
 
-def test_settings_are_overridden_from_env_variables(a_test_env):
-    settings = MLSettings(env_file=".example.env")
+def test_single_args():
+    for level_str in ["DEBUG", "INFO"]:
+        settings = MLSettings(log_level=level_str)
+        assert level_str == settings.log_level
+
+
+def test_unknown_arguments_are_rejected():
+    with pytest.raises(ValidationError) as e:
+        MLSettings(unknown_field="some_value")
+    assert "unknown_field" in str(e.value)
+
+
+def test_as_table(caplog):
+    table_output = MLSettings().as_table(description=True)
+    assert re.search(r"Name +\| Value +\| Description", table_output)
+    assert "    | Default" not in table_output
+
+
+def test_settings_are_overridden_from_env_variables(env_file):
+    settings = MLSettings(env_file)
 
     # Logging
-    assert settings.log_level == "ERROR"
-    assert settings.log_format == "%(message)-120s|%(levelname).1s %(asctime)s %(filename)s:%(lineno)d"
+    assert settings.log_level == "INFO"
+    assert settings.log_format == "%(message)-100s |%(levelname).3s %(asctime)s %(filename)s:%(lineno)d"
 
     # Paths
+    assert settings.checkpoint_file == "epoch=54-val_loss=0.50-auroc=0.987.ckpt"
+    assert settings.checkpoints == Path("~/.cache/torch/hub/checkpoints").expanduser()
     assert settings.config_path == Path("resources/config.geojson")
     assert settings.dates_path == Path("resources/dates.json")
-    assert settings.google_cred_path == Path("secrets/google_credentials.json")
     assert settings.input_path == Path("images/downloaded")
     assert settings.output_path == Path("images/predicted")
-    assert settings.up42_cred_path == Path("secrets/up42_credentials.json")
+    #   extra
+    assert settings.google_creds_path == Path("secrets/google_credentials.json")
+    assert settings.up42_creds_path == Path("secrets/up42_credentials.json")
 
     # Processing settings
-    assert settings.bucket_name == "marine_litter_predicted"
+    assert settings.bucket_name == "marinelitter_predicted"
     assert settings.days_before == 3
     assert settings.device == "cuda"
     assert settings.order_workers == 2
     assert settings.predict_workers == 4
+
+
+def test_settings_expands_os_env(monkeypatch):
+    monkeypatch.setenv("ML_INPUT_PATH", "~/test/input")
+    settings = MLSettings()
+    assert settings.input_path == Path("~/test/input").expanduser()
+    assert not str(settings.input_path).startswith("~")

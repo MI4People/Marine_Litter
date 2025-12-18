@@ -1,59 +1,58 @@
-import glob
-import os
+import logging
 import shutil
 import zipfile
+from pathlib import Path
 
 from osgeo import gdal
 
+log = logging.getLogger(__name__)
 
-def process_zip(zip_path):  # TODO check (no more used after commit e8c1e5620df99e4ad8156059c53b6e8c0ce619ef)
-    # Extract ZIP file
-    extract_dir = os.path.splitext(zip_path)[0]
+
+def process_zip(zip_path: Path) -> Path:
+    """Process a ZIP file containing satellite imagery bands and metadata.
+    Returns a scanline GeoTIFF for efficient sequential processing by the predictor.
+    """
+    extract_dir = zip_path.parent / zip_path.stem
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(extract_dir)
 
-    # Find .tif files that start with "B"
-    tif_files = sorted(glob.glob(os.path.join(extract_dir, "B*.tif")))
+    tif_files = sorted(extract_dir.glob("B*.tif"))  # the relevant images to combine
     if not tif_files:
-        raise ValueError("No .tif files starting with 'B' found in the extracted ZIP.")
+        raise ValueError(f"No .tif files starting with 'B' found in '{zip_path.name}'.")
 
-    # Extract metadata for naming convention
-    metadata_file = os.path.join(extract_dir, "metadata.xml")
-    if not os.path.exists(metadata_file):
-        raise FileNotFoundError("metadata.xml not found in extracted files.")
+    log.info(f"Found {len(tif_files)} 'B*.tif' files in '{zip_path.name}'.")
 
-    with open(metadata_file, "r", encoding="utf-8") as meta:
-        metadata_content = meta.read()
-        start_tag = '<TILE_ID metadataLevel="Brief">'
-        end_tag = "</TILE_ID>"
-        start_index = metadata_content.find(start_tag) + len(start_tag)
-        end_index = metadata_content.find(end_tag, start_index)
-        if start_index == -1 or end_index == -1:
-            raise ValueError("TILE_ID not found in metadata.xml")
-        tile_id = metadata_content[start_index:end_index].strip()
+    metadata_file = extract_dir / "metadata.xml"
+    if not metadata_file.exists():
+        raise FileNotFoundError(f"'{metadata_file.name}' not found in zip!")
 
-    # Define output filename
-    output_filename = f"{tile_id}.tif"
-    output_path = os.path.join(os.path.dirname(zip_path), output_filename)
+    metadata_content = metadata_file.read_text(encoding="utf-8")
+    start_tag = '<TILE_ID metadataLevel="Brief">'
+    end_tag = "</TILE_ID>"
+    start_index = metadata_content.find(start_tag) + len(start_tag)
+    end_index = metadata_content.find(end_tag, start_index)
+    if start_index == -1 or end_index == -1:
+        raise ValueError(f"Tag TILE_ID not found in '{metadata_file.name}'")
 
-    # Use GDAL to merge bands into one file
+    # merge bands into one file
+    tile_id = metadata_content[start_index:end_index].strip()
+    vrt_filename = zip_path.parent / f"{tile_id}.vrt"
     vrt_options = gdal.BuildVRTOptions(separate=True, srcNodata=0, VRTNodata=0)
-    vrt_filename = output_path.replace(".tif", ".vrt")
+    gdal.BuildVRT(str(vrt_filename), [str(f) for f in tif_files], options=vrt_options)
 
-    gdal.BuildVRT(vrt_filename, tif_files, options=vrt_options)
-
-    # Convert to final GeoTIFF with scaling and NoData handling
+    # final data handling
+    combined_tif = vrt_filename.with_suffix(".tif")
     gdal.Translate(
-        output_path,
-        vrt_filename,
-        format="GTiff",
-        scaleParams=[[0, 10000, 0, 255]],  # Rescale brightness
-        outputType=gdal.GDT_Byte,  # Ensure Byte (0-255)
-        noData=0,  # Preserve NoData
+        str(combined_tif),  # to
+        str(vrt_filename),  # from
+        format="GTiff",  # https://gdal.org/en/stable/drivers/raster/gtiff.html
+        scaleParams=[[0, 10000, 0, 255]],  # map brightness
+        outputType=gdal.GDT_Byte,
+        noData=0,
     )
-    # Cleanup extracted files, intermediate VRT, and ZIP file
-    shutil.rmtree(extract_dir, ignore_errors=True)  # Delete extracted folder
-    os.remove(zip_path)  # Delete ZIP file
-    os.remove(vrt_filename)  # Delete intermediate VRT file
 
-    print(f"Processing complete. Output file: {output_filename}")
+    # clean up
+    vrt_filename.unlink()
+    shutil.rmtree(extract_dir, ignore_errors=True)
+
+    return combined_tif
