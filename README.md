@@ -87,6 +87,7 @@ Ensure all these are fine **_before_ committing** a change to git.
 uv sync --active --upgrade
 
 # check code and fix linting issues
+ty check --output-format concise
 ruff check --preview --fix --unsafe-fixes
 
 # run all tests
@@ -94,7 +95,10 @@ pytest tests
 ```
 
 ### Docker
-> See the extra [**Docker readme**](docker/readme.md).
+See the extra [**Docker readme**](docker/readme.md), namely you could test the built Docker image by
+```bash
+docker run --rm --env-file .env -v ./secrets:/marine_litter/secrets:ro marine_litter python scripts/run_all.py --dry-run
+```
 
 ### Frontend Development (JavaScript for Google Earth Engine)
 > **TBD**
