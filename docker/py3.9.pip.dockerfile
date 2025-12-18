@@ -6,7 +6,7 @@ WORKDIR /marine_litter
 
 # Install system dependencies (e.g., GDAL, etc.)
 RUN apt-get update && apt-get install -y \
-    wget \ 
+    wget \
     binutils \
     libproj-dev \
     gdal-bin \

@@ -38,14 +38,16 @@ Then you could use the Python scripts in 'scripts/', or run `pytest`,
 but you might want to understand the repo structure and configurations first...
 
 ### Repository Structure
-- **docker/** - Docker related files
-- **docs/** - for documentation via [**mkdocs**](https://www.mkdocs.org/)
-- **resources/** - like configurations, GeoJSON etc.
-- **scripts/** - to run for analysis
-- **secrets/** - (git-ignored) credentials
-- **src/marine_litter/** - actual package code
-- **tests/** - for [pytest](https://github.com/pytest-dev/pytest/)
-- **web_gee/** - Frontend: JavaScript for Google Earth Engine
+~~~
+/docker/       - Docker related files, including readme for setup
+./docs/         - for documentation via https://www.mkdocs.org/
+./resources/    - GIS configuration etc.
+./scripts/      - to run for analysis
+./secrets/      - (git-ignored) credentials
+./src/          - actual package code
+./tests/        - for pytest
+./web_gee/      - frontend: JavaScript for Google Earth Engine
+~~~
 
 Some temporary (git-ignored) directories like `_temp/`, or `site/` may be produced by certain tools or scripts.
 
@@ -111,6 +113,25 @@ scripts\run_all.py
 uv run scripts/run_all.py
 uv run --active scripts/run_all.py
 ```
+
+
+### CVE-2025-63396 (PyTorch Profiler Bug)
+- **Status**: CVSS 3.3 LOW - Not a security vulnerability
+- **Affected**: PyTorch 2.5, 2.7.1, 2.9.1 (likely)
+- **Issue**: Forgetting `profiler.stop()` causes crashes/hangs in `torch.profiler.profile`
+- **References**:
+    - [NVD CVE Details](https://nvd.nist.gov/vuln/detail/CVE-2025-63396)
+    - [PyTorch GitHub Issue](https://github.com/pytorch/pytorch/issues/156563)
+    - [PyTorch Security Advisories](https://github.com/pytorch/pytorch/security/advisories)
+
+#### Why not a security issue?
+- Requires user error (API misuse)
+- Only affects developer's own code
+- Cannot be exploited for attacks
+
+#### Recommendation
+- **Safe to ignore**, if using the profiler, call `.stop()` properly
+- Watch for future PyTorch releases addressing this.
 
 ## Documentation
 We use [MkDocs](https://www.mkdocs.org/) for documentation,
