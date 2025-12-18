@@ -37,10 +37,10 @@ to provide a publicly available user interface that highlights potential marine 
 Explore Sentinel-2 images using the [EO Browser](https://apps.sentinel-hub.com/eo-browser/?zoom=7&lat=43.77903&lng=12.95288&themeId=DEFAULT-THEME&visualizationUrl=U2FsdGVkX1%2Fo0MQMJMe9reZjbTR8h6F3Bk2e%2Bt0%2BuBNt2bdf%2BpUw5HUYZC%2BC6Zk1zVnenS9oXT%2BsMh%2B3%2FKwyedQZfEsnQgMEFJM1EjcNTvaGB%2B%2BWdB%2B2PMxbpGD06QXc&datasetId=S2L2A&fromTime=2019-07-15T00%3A00%3A00.000Z&toTime=2019-07-15T23%3A59%3A59.999Z&layerId=1_TRUE_COLOR&demSource3D=%22MAPZEN%22).
 
 ### Model Performance
-By enhancing segmentation and adding ship position databases, the Unet++ model achieves ~86% accuracy.
+By enhancing segmentation and adding ship position databases, the UNet++ model achieves ~86% accuracy.
 The model and code are publicly available:
-- **Research Paper:** [arxiv.org/pdf/2307.02465](https://arxiv.org/pdf/2307.02465)
-- **Original Code:** [github.com/MarcCoru/marinedebrisdetector](https://github.com/MarcCoru/marinedebrisdetector)
+- **Research Paper:** https://arxiv.org/abs/2307.02465, based on https://arxiv.org/abs/1807.10165
+- **Original Code:** https://github.com/MarcCoru/marinedebrisdetector
 
 ## Usage
 
@@ -53,15 +53,14 @@ Google Cloud Storage (GCS).
 ```mermaid
 flowchart TD
     n1(("Cron job")):::trigger --> n2
-    n2["Put images order at UP42"] --> n3
-    n3["Download images from UP42 <br/> (_order_ may take 10-15 min)"] -- Store raw images in ML_INPUT_PATH --> n4
-    n4 --> n5
-    n4["Run marine debris detectors in parallel"] -- Store predictions in ML_OUPUT_PATH --> n6
-    n5["Save dates & prediction.tif filenames in dates.json"] --> n6
-    n6["Convert predicted images for online use"] --> n7
-    n7["Transfer dates.json and prediction.tif files to GCS"] --> n8
-    n8["Delete original images & predictions"] --> n9
-    n9["Show predictions in GEE app"]
+    n2["Put image orders at UP42 <br/> (ML_ORDER_WORKERS in parallel)"] --> n3
+    n3["Poll and download these images <br/> (may take 15 min)"] -- Store images (zip with meta info) in ML_INPUT_PATH --> n4
+    n4["Stack each zip's images into 1 GeoTIFF"] --> n5
+    n5["Run marine debris detector on latter <br/> (ML_PREDICT_WORKERS in parallel)"] -- Store predictions in ML_OUPUT_PATH --> n6
+    n5 -- Store date & filenames in ML_DATES_PATH (dates.json) --> n6
+    n6["Transfer dates.json and predictions to GCS"] --> n7
+    n7["Clean up files locally and remote"] --> n8
+    n8["Show predictions in GEE app"]
     classDef trigger fill:#ffffff;
 ```
 
