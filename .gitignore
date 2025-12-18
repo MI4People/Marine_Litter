@@ -1,5 +1,6 @@
 *egg-info/
 .cache/
+.github/copilot/
 .idea/
 .pkg/
 .pytest_cache/
@@ -12,8 +13,10 @@ __pycache__/
 _temp*/
 build/
 dist/
+images/
 secrets/
 site/
+temp/
 
 *.coverage*
 *.lnk
