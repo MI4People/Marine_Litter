@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 import glob
+import logging
 import os
+from pathlib import Path
 
 from osgeo import gdal
+
+log = logging.getLogger(__name__)
+
 
 # ───────── PARAMETERS ─────────────────────────────────────────────────────────
 INPUT_PATTERN = "examples_for_merging/*prediction.tif"  # that's where I put my samples
@@ -14,7 +19,7 @@ REPROJ_COPTS = ["TILED=YES", "COMPRESS=DEFLATE", "BIGTIFF=YES"]
 FINAL_COPTS = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "BIGTIFF=YES", "COPY_SRC_OVERVIEWS=YES"]
 
 
-def merge_tiles(  # noqa: PLR0913, PLR0917
+def main(  # noqa: PLR0913, PLR0917
     input_pattern: str = INPUT_PATTERN,
     target_srs: str = TARGET_SRS,
     pixel_size: float = PIXEL_SIZE,
@@ -33,7 +38,7 @@ def merge_tiles(  # noqa: PLR0913, PLR0917
     reproj_files = []
     for src in glob.glob(input_pattern):
         dst = os.path.join("reproj", os.path.basename(src))
-        print(f"Reprojecting {src} → {dst}")
+        log.info(f"Reprojecting {src} → {dst}")
         gdal.Warp(
             dst,
             src,
@@ -47,7 +52,7 @@ def merge_tiles(  # noqa: PLR0913, PLR0917
         reproj_files.append(dst)
 
     # 2) Build the VRT (now with explicit xRes/yRes + tap)
-    print(f"Building VRT: {vrt_filename}")
+    log.info(f"Building VRT: {vrt_filename}")
     vrt_opts = gdal.BuildVRTOptions(
         xRes=pixel_size,  # required for targetAlignedPixels
         yRes=pixel_size,
@@ -59,15 +64,11 @@ def merge_tiles(  # noqa: PLR0913, PLR0917
     gdal.BuildVRT(vrt_filename, reproj_files, options=vrt_opts)
 
     # 3) Translate VRT to the final GeoTIFF
-    print(f"Translating VRT → {output_tif}")
-    gdal.Translate(
-        output_tif,
-        vrt_filename,
-        creationOptions=final_copts,
-    )
-
-    print("Done! Your seamless mosaic is:", output_tif)
+    log.info(f"Translating VRT → {output_tif}")
+    gdal.Translate(output_tif, vrt_filename, creationOptions=final_copts)
+    log.info(f"Done! Your seamless mosaic is: {output_tif}")
 
 
 if __name__ == "__main__":
-    merge_tiles()
+    os.chdir(Path(__file__).resolve().parents[1])
+    main()
