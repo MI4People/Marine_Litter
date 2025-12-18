@@ -1,30 +1,18 @@
 import concurrent.futures
-import datetime
 import json
 import logging
+import os
+import re
 import shutil
-import subprocess
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from marine_litter.ml_settings import MLSettings
+from marine_litter.tif_processing import predict_litter
+from marine_litter.zip_processing import process_zip
 
-
-def run_command(command):
-    """Run the command to process each image and log progress."""
-    try:
-        logging.info(f"Executing command: {command}")
-        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        for line in process.stdout:
-            logging.info(line.strip())
-        process.wait()
-        if process.returncode != 0:
-            error_msg = process.stderr.read()
-            logging.error(f"Error while executing command '{command}': {error_msg}")
-        else:
-            logging.info("Command executed successfully.")
-    except Exception as e:
-        logging.error(f"An unexpected error occurred while executing command '{command}': {e}")
+log = logging.getLogger(__name__)
 
 
 def show_progress(futures):
@@ -33,86 +21,111 @@ def show_progress(futures):
     while True:
         done_count = sum(f.done() for f in futures)
         running_count = sum(1 for f in futures if f.running())
-        logging.info(f"Progress: {done_count}/{total} completed, {running_count} running.")
+        print(f"  {done_count}/{total} completed, {running_count} running.", end="\r")
         if done_count == total:
             break
         time.sleep(5)
 
 
-def move_predictions(input_folder, output_folder):
-    input_folder = Path(input_folder)
-    output_folder = Path(output_folder)
+def move_predictions_and_remove_prediction_input_files(input_path: Path, output_path: Path) -> list[Path]:
     moved_files = []
-    for file_path in input_folder.iterdir():
-        if file_path.name.endswith("_prediction.tif"):
-            dst_path = output_folder / file_path.name
-            try:
-                shutil.move(str(file_path), str(dst_path))
-                moved_files.append(file_path.name)
-                logging.info(f"Moved prediction {file_path.name} to {output_folder}")
-            except Exception as e:
-                logging.error(f"Failed to move {file_path.name}: {e}")
+    for prediction_tif in input_path.glob("*_prediction.tif"):
+        try:
+            shutil.move(prediction_tif, output_path / prediction_tif.name)
+            moved_files.append(prediction_tif)
+            log.info(f"Moved '{prediction_tif.name}' to {output_path}/")
+        except Exception as e:
+            log.error(f"Failed to move '{prediction_tif.name}': {e}")
+
+    # remove the litter prediction input TIFFs
+    for tif_file in input_path.glob("*.tif"):
+        tif_file.unlink()
+        log.debug(f"Deleted '{tif_file.name}'")
+
     return moved_files
 
 
-def update_dates_json(json_path, predicted_files, days_before):
-    json_path = Path(json_path)
-    yesterday = (datetime.date.today() - datetime.timedelta(days=days_before)).isoformat()
-    if json_path.exists():
-        with json_path.open("r", encoding="utf-8") as json_file:
+def update_dates_json(dates_path: Path, predicted_files: list[Path]):
+    json_data: dict[str, list[str]] = {}
+    if dates_path.exists():
+        with dates_path.open("r", encoding="utf-8") as json_file:
             try:
                 json_data = json.load(json_file)
             except json.JSONDecodeError:
-                logging.warning(f"Corrupted JSON found at {json_path}. Re-creating file.")
-                json_data = {}
-    else:
-        json_data = {}
-    json_data.setdefault(yesterday, [])
-    for file in predicted_files:
-        if file not in json_data[yesterday]:
-            json_data[yesterday].append(file)
-    json_data[yesterday] = sorted(set(json_data[yesterday]))
-    with json_path.open("w", encoding="utf-8") as json_file:
-        json.dump(json_data, json_file, indent=4)
-    logging.info(f"Updated JSON for {yesterday} with files: {predicted_files}")
+                log.warning(f"Could not load '{dates_path}'. Re-creating file.")
+
+    new_dates = defaultdict(list)
+    for json_key, json_values in json_data.items():
+        new_dates[json_key].extend(json_values)
+    for predicted in sorted(predicted_files):
+        filename = predicted.name
+        m = re.search(r"_(20\d{2})(\d{2})(\d{2})T\d{6}_", filename)
+        if not m:
+            log.warning(f"Could not extract date from '{filename}'")
+            continue
+        new_dates[f"{m.group(1)}-{m.group(2)}-{m.group(3)}"].append(filename)
+
+    with dates_path.open("w", encoding="utf-8") as json_file:
+        json.dump(new_dates, json_file, indent=4)
+    log.info(f"Updated {dates_path} with {len(predicted_files)} predicted file(s)")
 
 
-def clean_input_folder(input_folder):
-    input_folder = Path(input_folder)
-    try:
-        for file_path in input_folder.iterdir():
-            file_path.unlink()
-            logging.info(f"Deleted: {file_path.name}")
-        logging.info("All input files deleted successfully.")
-    except Exception as e:
-        logging.error(f"Error while deleting files from input folder: {e}")
-
-
-def run_prediction(settings: MLSettings = None):
+def main(settings: MLSettings | None = None, delete_zip: bool = True, dry_run: bool = False):
     if settings is None:
-        settings = MLSettings()
-    logging.basicConfig(level=settings.log_level, format=settings.log_format)
-    logging.info(10 * "-" + " Run prediction on images")
+        settings = MLSettings(".env")
+        logging.basicConfig(level=settings.log_level, format=settings.log_format)
+        log.info(f"Settings:\n{settings.as_table()}")
 
-    output_path = Path(settings.output_path)
-    input_path = Path(settings.input_path)
+    log.info(10 * "-" + " Run prediction on images")
+    input_path = settings.input_path
+    zip_files = sorted(input_path.glob("*.zip"))
+
+    if dry_run:
+        return
+
+    if not zip_files:
+        log.warning(f"No UP42 zip files found in '{input_path}'!")
+        return
+
+    for i, zip_file in enumerate(zip_files):
+        log.info(f"Processing {i + 1:2}/{len(zip_files)} '{zip_file.name}'")
+        tif_fname: Path = process_zip(zip_file)
+        if delete_zip:
+            zip_file.unlink()
+        log.info(f"-> '{tif_fname}'")
+
+    tif_files = sorted(input_path.glob("*.tif"))
+    if not tif_files:
+        log.warning(f"No tif files found in '{input_path}'!")
+        return
+
+    output_path = settings.output_path
     if output_path.exists():
         shutil.rmtree(output_path)
-        logging.info(f"Cleared existing output directory: {output_path}")
+        log.info(f"Cleared existing output directory: '{output_path}'")
     output_path.mkdir(parents=True, exist_ok=True)
-    logging.info(f"Created output directory: {output_path}")
-    tif_files = [f for f in input_path.iterdir() if f.name.endswith(".tif")]
-    if not tif_files:
-        logging.warning("No TIFF files found in the input directory.")
-        return
-    commands = [f"marinedebrisdetector --device={settings.device} {str(tif_file)}" for tif_file in tif_files]
+    log.info(f"Created output directory: {output_path}")
+
+    checkpoint_path = None
+    if settings.checkpoint_file:
+        checkpoint_path = settings.checkpoints.expanduser() / settings.checkpoint_file
+        if not checkpoint_path.exists():
+            log.warning(f"Custom checkpoint not found: {checkpoint_path}, using hub defaults")
+            checkpoint_path = None
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=settings.predict_workers) as executor:
-        futures = [executor.submit(run_command, cmd) for cmd in commands]
+        futures = [
+            executor.submit(predict_litter, tif_file, settings.device, checkpoint_path) for tif_file in tif_files
+        ]
         show_progress(futures)
-    moved_files = move_predictions(input_path, output_path)
-    update_dates_json(settings.dates_path, moved_files, settings.days_before)
-    clean_input_folder(input_path)
+
+    predicted_files = [f.result() for f in futures if f.result() is not None]
+    log.info(f"Successfully predicted {len(predicted_files)}/{len(tif_files)} files")
+
+    moved_files: list[Path] = move_predictions_and_remove_prediction_input_files(input_path, output_path)
+    update_dates_json(settings.dates_path, moved_files)
 
 
 if __name__ == "__main__":
-    run_prediction()
+    os.chdir(Path(__file__).resolve().parents[1])
+    main()

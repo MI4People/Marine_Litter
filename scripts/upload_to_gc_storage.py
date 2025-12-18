@@ -1,71 +1,80 @@
 import logging
+import os
 from pathlib import Path
 
 from google.cloud import storage
 
 from marine_litter.ml_settings import MLSettings
 
+log = logging.getLogger(__name__)
 
-def upload_delete(bucket_name, source_folder, extra_file, credential):
+
+def upload_delete(bucket_name, source_folder: Path, prediction_tifs_by_date_json: Path, google_creds_path):
+    if not source_folder.is_dir():
+        log.error(f"Source folder '{source_folder}' does not exist.")
+        return
+
+    bucket = None
     try:
-        client = storage.Client.from_service_account_json(str(credential))
+        client = storage.Client.from_service_account_json(google_creds_path)
         bucket = client.bucket(bucket_name)
-
-        source_folder = Path(source_folder)
-        extra_file = Path(extra_file)
-
-        if not source_folder.exists():
-            logging.error(f"Source folder '{source_folder}' does not exist.")
-            return
-
-        for source_file_path in source_folder.rglob("*"):
-            if source_file_path.is_file():
-                destination_blob = str(source_file_path.relative_to(source_folder)).replace("\\", "/")
-                try:
-                    blob = bucket.blob(destination_blob)
-                    blob.upload_from_filename(str(source_file_path))
-                    logging.info(f"Uploaded: {source_file_path} -> {destination_blob}")
-
-                    source_file_path.unlink()
-                    logging.info(f"Deleted: {source_file_path}")
-
-                except Exception as e:
-                    logging.error(f"Failed to upload {source_file_path}: {e}")
-
-        if extra_file.exists():
-            destination_blob = extra_file.name
-            try:
-                blob = bucket.blob(destination_blob)
-                blob.upload_from_filename(str(extra_file))
-                logging.info(f"Uploaded extra file: {extra_file} -> {destination_blob}")
-            except Exception as e:
-                logging.error(f"Failed to upload extra file {extra_file}: {e}")
-        else:
-            logging.warning(f"Extra file '{extra_file}' does not exist.")
-
-        logging.info(f"Directory snapshot after uploads & deletes: {[f.name for f in source_folder.iterdir()]}")
-
-        blobs = list(bucket.list_blobs())
-        blob_names = [b.name for b in blobs]
-        logging.info(f"Server snapshot (bucket contents): {blob_names}")
-
     except Exception as e:
-        logging.critical(f"Error initializing storage client: {e}")
+        log.critical(f"Error for GC storage client: {e}")
+    if bucket is None:
+        return
+
+    # 1) upload prediction tifs and delete them locally
+    for source_file in source_folder.glob("*.tif"):
+        source_file: Path
+        destination_blob = source_file.name
+        try:
+            blob = bucket.blob(destination_blob)
+            blob.upload_from_filename(str(source_file))
+            log.info(f"✓ {destination_blob}")
+
+            source_file.unlink()
+            log.debug(f"Deleted: {source_file}")
+
+        except Exception as e:
+            log.error(f"Failed to upload {source_file}: {e}")
+
+    # 2) upload 'dates.json': prediction tif filenames by date
+    if prediction_tifs_by_date_json.exists():
+        destination_blob = prediction_tifs_by_date_json.name
+        try:
+            blob = bucket.blob(destination_blob)
+            blob.upload_from_filename(str(prediction_tifs_by_date_json))
+            log.info(f"Uploaded extra file: {prediction_tifs_by_date_json} -> {destination_blob}")
+        except Exception as e:
+            log.error(f"Failed to upload extra file {prediction_tifs_by_date_json}: {e}")
+    else:
+        log.warning(f"Extra file '{prediction_tifs_by_date_json}' does not exist.")
+
+    if not "unclear why this is needed, and how to sort":
+        max_results = 100
+        log.info(f"Server bucket contents (max. {max_results}):")
+        blob_names = sorted(b.name for b in bucket.list_blobs(max_results=max_results))
+        log.info("\n  ".join(["\n"] + [str(r) for r in blob_names]))
 
 
-def run_upload_delete(settings: MLSettings = None):
+def main(settings: MLSettings | None = None, dry_run: bool = False):
     if settings is None:
-        settings = MLSettings()
-    logging.basicConfig(level=settings.log_level, format=settings.log_format)
-    logging.info(10 * "-" + " Upload and delete images")
+        settings = MLSettings(".env")
+        logging.basicConfig(level=settings.log_level, format=settings.log_format)
+        log.info(f"Settings:\n{settings.as_table()}")
+
+    log.info(10 * "-" + " Upload and delete images")
+    if dry_run:
+        return
 
     upload_delete(
         bucket_name=settings.bucket_name,
         source_folder=settings.output_path,
-        extra_file=settings.dates_path,
-        credential=settings.google_cred_path,
+        prediction_tifs_by_date_json=settings.dates_path,
+        google_creds_path=settings.google_creds_path,
     )
 
 
 if __name__ == "__main__":
-    run_upload_delete()
+    os.chdir(Path(__file__).resolve().parents[1])
+    main()
