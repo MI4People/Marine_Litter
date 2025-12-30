@@ -19,18 +19,18 @@ description = "Marine Litter Detection via Satellites"
 license-files = ["LICENSE.txt"]
 name = "marine-litter"
 readme = "README.md"
-# Python 3.10 would need an older GDAL in Windows (or re-compile).
-# Python 3.12 is recommended in Docker to keep it simpler for GDAL in Ubuntu LTS.
-requires-python = ">=3.11"
-version = "0.1.1"
+# Python 3.12.3 is recommended in Docker to keep it simpler for GDAL and CUDA in Ubuntu 24.04 LTS.
+requires-python = ">=3.12.3,<3.14"
+version = "0.1.2"
 
 dependencies = [
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp311-cp311-win_amd64.whl; python_version=='3.11' and sys_platform == 'win32'",
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
     "google-cloud-storage",
     "marinedebrisdetector",  # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
     "pydantic-settings",
+    "torch==2.9.1+cu130",
+    "torchvision==0.24.1+cu130",
     "up42-py>=2.6,<3",  # TODO v3 migration
 ]
 
@@ -51,6 +51,15 @@ dev = [
     "uv_build",
 ]
 dev2 = ["black[d]", "pipdeptree"]  # optional
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
 
 [build-system]
 requires = ["uv_build"]

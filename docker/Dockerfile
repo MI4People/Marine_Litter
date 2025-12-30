@@ -1,28 +1,26 @@
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.1
-# See https://github.com/OSGeo/gdal/tree/master/docker/ubuntu-small
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.4
+# This base image (https://github.com/OSGeo/gdal/tree/master/docker/) comes with
 #   Ubuntu 24.04 LTS
 #   Python 3.12.3
-#   GDAL 3.11.1
+#   GDAL 3.11.4
+#
+# See parallel 'readme.md' for usage.
 
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-gdal \
-    wget \
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --break-system-packages uv \
-    && python --version \
-    && echo "GDAL $(gdalinfo --version)" \
-    && uv --version
+    && python -c "from osgeo import gdal; print(f'Python gdal: {gdal.__version__}')" || exit 1
 
 # Add venv to PATH so python can be called directly.
-# Configure uv to avoid some CLI parameters.
-# UV_SYSTEM_PYTHON ensures uv uses the Python 3.12.3 from the GDAL base image.
+# Configure uv to avoid some CLI parameters (https://docs.astral.sh/uv/reference/cli/).
 ENV PATH="/root/.local/bin:/marine_litter/.venv/bin:${PATH}" \
-    UV_SYSTEM_PYTHON=true \
-    UV_PROJECT_ENVIRONMENT=/marine_litter/.venv \
+    UV_FROZEN=1 \
     UV_LINK_MODE=copy \
-    UV_LOCKED=true \
-    UV_NO_DEV=true
+    UV_NO_DEV=1 \
+    UV_PROJECT_ENVIRONMENT=/marine_litter/.venv \
+    UV_SYSTEM_PYTHON=1
 
 WORKDIR /marine_litter
 
@@ -34,13 +32,11 @@ RUN mkdir -p images/downloaded \
     && wget --no-check-certificate "http://dalic.de/mi4people/${MODEL_CKPT}" \
     && mv "${MODEL_CKPT}" /root/.cache/torch/hub/checkpoints/"${MODEL_CKPT}"
 
-# Sync 3rd parties only for Docker cache efficiency
-#   Note `--no-install-project`, still uv might need a 'README.md' stub.
+# Dependencies (change less frequently)
 COPY ../pyproject.toml .
 COPY ../uv.lock .
 RUN --mount=type=cache,target=/root/.cache/uv \
-    echo "# Marine Litter" > README.md \
-    && uv venv --python-preference system --system-site-packages \
+    uv venv --system-site-packages .venv \
     && uv sync --no-install-project
 
 # Copy code (changes more frequently), and provide project
@@ -49,7 +45,7 @@ COPY ../README.md .
 COPY ../resources/ ./resources
 COPY ../scripts/ ./scripts
 COPY ../src/ ./src
-RUN uv sync
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
 
-# Provide bash (see 'readme.md' for usage)
 CMD ["/bin/bash"]

@@ -38,22 +38,25 @@ docker build -f docker/Dockerfile -t marine_litter .
 
 Ensure your local, git-ignored `.env` and `secrets/*.json` files exist before running the image.
 
-Run it interactively with mounted secrets and environment variables.
-Do not prepend `uv run` as might be needed in other setups, since venv will be added to PATH (examples):
+Run it interactively with mounted secrets and environment variables, like in next examples.
+Do not prepend `uv run` as might be needed in other setups, since venv is added to PATH.
 ```bash
-docker run -it --rm --env-file .env -v ./secrets:/marine_litter/secrets:ro marine_litter
+docker run -it --rm --gpus=all --env-file .env -v ./secrets:/marine_litter/secrets:ro marine_litter
 
+# In the running container, check installation and settings:
+gdalinfo --version && python --version && uv --version
+python -c "import torch; print(f'torch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
 ls -l /root/.cache/torch/hub/checkpoints
-python --version && echo "GDAL $(gdalinfo --version)"
 python scripts/run_all.py --help
 python scripts/run_all.py --dry-run
 ```
 
-Or run it as one-off command with custom environment variables like:
+Or run it as **one-off command** like:
 ```bash
-docker run --rm --env-file .env -v ./secrets:/marine_litter/secrets:ro -e ML_PREDICT_WORKERS=8 marine_litter python scripts/run_all.py --dry-run
+# check installation and settings
+docker run --rm --gpus=all --env-file .env -v ./secrets:/marine_litter/secrets:ro marine_litter python scripts/run_all.py --dry-run
 ```
-
+which .
 ### Server requirements:
 - Install NVIDIA driver (was done by Bechtle)
 - Install Docker: https://docs.docker.com/engine/install/ubuntu/
