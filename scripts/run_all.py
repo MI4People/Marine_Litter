@@ -1,6 +1,6 @@
 import logging
 import os
-from argparse import ArgumentParser, BooleanOptionalAction, HelpFormatter, Namespace
+from argparse import ArgumentParser, HelpFormatter, Namespace
 from pathlib import Path
 
 import download_from_up42
@@ -14,17 +14,13 @@ from marine_litter.ml_settings import MLSettings
 log = logging.getLogger(__name__)
 
 
-def main():
-    ap = ArgumentParser(description=__doc__, formatter_class=lambda prog: HelpFormatter(prog, max_help_position=40))
-    ap.add_argument("-l", "--log", default="INFO", help="DEBUG, INFO, WARNING, ERROR, CRITICAL, default: INFO")
-    ap.add_argument("-d", "--dry-run", action=BooleanOptionalAction, default=False, help="just some checking log info")
-    args: Namespace = ap.parse_args()
-
+def main(log_level="WARNING", dry_run=False):
     env_file = ".env" if Path(".env").is_file() else None
     settings = MLSettings(env_file)
-    settings.log_level = args.log
+    settings.log_level = log_level
+
     logging.basicConfig(level=settings.log_level, format=settings.log_format)
-    log.info(f"Settings:\n{settings.as_table(description=args.dry_run)}")
+    log.info(f"Settings:\n{settings.as_table(description=dry_run)}")
     log.info(f"GDAL: {gdal.__version__}")
     if cuda.is_available():
         log.info(f"CUDA: {version.cuda}")
@@ -38,13 +34,19 @@ def main():
 
     log.info(10 * "=" + " Starting workflow")
 
-    download_from_up42.main(settings, dry_run=args.dry_run)
-    predict_litter.main(settings, dry_run=args.dry_run)
-    upload_to_gc_storage.main(settings, dry_run=args.dry_run)
+    download_from_up42.main(settings, dry_run=dry_run)
+    predict_litter.main(settings, dry_run=dry_run)
+    upload_to_gc_storage.main(settings, dry_run=dry_run)
 
     log.info(10 * "=" + " Workflow completed")
 
 
 if __name__ == "__main__":
     os.chdir(Path(__file__).resolve().parents[1])
-    main()
+
+    ap = ArgumentParser(description=__doc__, formatter_class=lambda prog: HelpFormatter(prog, max_help_position=40))
+    ap.add_argument("-l", "--log", default="INFO", help="DEBUG, INFO, WARNING, ERROR, CRITICAL, default: INFO")
+    ap.add_argument("-d", "--dry-run", action="store_true", help="only tell settings and do some checks")
+    args: Namespace = ap.parse_args()
+
+    main(args.log, args.dry_run)
