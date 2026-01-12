@@ -15,23 +15,25 @@ def test_settings_defaults():
     tested_fields = {
         "log_level": "WARNING",
         "log_format": "%(message)-100s |%(levelname).1s %(asctime)s %(filename)s:%(lineno)d",
+        # Authentication
+        "google_creds_path": Path("secrets/google_credentials.json"),
+        "up42_creds_path": Path("secrets/up42_credentials.json"),
         # Paths
         "checkpoint_file": "",
         "checkpoints": Path("~/.cache/torch/hub/checkpoints").expanduser(),
-        "config_path": Path("resources/config.geojson"),
         "dates_path": Path("resources/dates.json"),
+        "geojson_path": Path("resources/features.geojson"),
         "input_path": Path("images/downloaded"),
         "output_path": Path("images/predicted"),
-        #   extra
-        "google_creds_path": Path("secrets/google_credentials.json"),
-        "up42_creds_path": Path("secrets/up42_credentials.json"),
         # Processing
         "bucket_name": "marinelitter_predicted",
+        "clouds_perc_max": 50,
         "days_before": 2,
+        "days_num": 1,
         "device": "cpu",
         "order_workers": 3,
         "predict_workers": 1,
-        "product_id": "1234abcd-4321-cdef-fedc-1234567890ab",
+        "product_name": "sentinel-2-level-2a",
     }
     missing_fields = set(MLSettings.model_fields.keys()) - set(tested_fields.keys())
     assert not missing_fields, f"Missing in test fields: {missing_fields}"
@@ -43,6 +45,15 @@ def test_settings_defaults():
     for field_name, expected_value in tested_fields.items():
         actual_value = getattr(settings, field_name)
         assert actual_value == expected_value, f"Field '{field_name}': expected {expected_value}, got {actual_value}"
+
+
+def test_example_env_completeness(env_file):
+    env_fields = []
+    with open(env_file, "r", encoding="utf-8") as f:
+        env_fields.extend(m[1].lower() for line in f.readlines() if (m := re.match("^ML_([A-Z0-9_]+) *=", line)))
+
+    missing_fields = set(MLSettings.model_fields.keys()) - set(env_fields)
+    assert not missing_fields, f"Missing in '.example.env' fields: {missing_fields}"
 
 
 def test_missing_env_file_raises_file_not_found_error():
@@ -75,20 +86,23 @@ def test_settings_are_overridden_from_env_variables(env_file):
     assert settings.log_level == "INFO"
     assert settings.log_format == "%(message)-100s |%(levelname).3s %(asctime)s %(filename)s:%(lineno)d"
 
-    # Paths
-    assert settings.checkpoint_file == "epoch=54-val_loss=0.50-auroc=0.987.ckpt"
-    assert settings.checkpoints == Path("~/.cache/torch/hub/checkpoints").expanduser()
-    assert settings.config_path == Path("resources/config.geojson")
-    assert settings.dates_path == Path("resources/dates.json")
-    assert settings.input_path == Path("images/downloaded")
-    assert settings.output_path == Path("images/predicted")
-    #   extra
+    # Authentication
     assert settings.google_creds_path == Path("secrets/google_credentials.json")
     assert settings.up42_creds_path == Path("secrets/up42_credentials.json")
 
+    # Paths
+    assert settings.checkpoint_file == "epoch=54-val_loss=0.50-auroc=0.987.ckpt"
+    assert settings.checkpoints == Path("~/.cache/torch/hub/checkpoints").expanduser()
+    assert settings.dates_path == Path("resources/dates.json")
+    assert settings.geojson_path == Path("resources/features.geojson")
+    assert settings.input_path == Path("images/downloaded")
+    assert settings.output_path == Path("images/predicted")
+
     # Processing settings
     assert settings.bucket_name == "marinelitter_predicted"
+    assert settings.clouds_perc_max == 42
     assert settings.days_before == 3
+    assert settings.days_num == 1
     assert settings.device == "cuda"
     assert settings.order_workers == 2
     assert settings.predict_workers == 4

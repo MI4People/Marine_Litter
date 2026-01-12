@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
-DFT_PRODUCT_ID = "1234abcd-4321-cdef-fedc-1234567890ab"
+DFT_PRODUCT_NAME = "sentinel-2-level-2a"
 log = logging.getLogger(__name__)
 
 
@@ -22,42 +22,46 @@ class MLSettings(BaseSettings):
     See documentation https://docs.pydantic.dev/latest/concepts/pydantic_settings/
     """
 
-    model_config = ConfigDict(extra="forbid")
+    # Please keep members alphabetically per group.
+    # Sync '.env.example' and your private '.env' accordingly.
+    # Like '.env' file: Do not commit credentials to version control!
 
-    # (keep alphabetically per group, sync .env.example accordingly)
+    model_config = ConfigDict(extra="forbid")  # disallow unknown fields
+
+    # Authentication
+    google_creds_path: Path = Field(default=Path("secrets/google_credentials.json"), description="Google credentials")
+    up42_creds_path: Path = Field(default=Path("secrets/up42_credentials.json"), description="UP42 credentials")
 
     # Logging
     log_level: str = Field(default="WARNING")
     log_format: str = Field(default="%(message)-100s |%(levelname).1s %(asctime)s %(filename)s:%(lineno)d")
 
     # Paths
-    #   PyTorch caches checkpoints in '~/.cache/torch/hub/checkpoints' (default location),
-    #       in Windows '%USERPROFILE%\.cache\torch\hub\checkpoints'.
+    #   Note, Torch caches checkpoints in '~/.cache/torch/hub/checkpoints' (default location).
     checkpoint_file: str = Field(default="", description="ckpt file for marinedebrisdetector predictor")
     checkpoints: Path = Field(default=Path("~/.cache/torch/hub/checkpoints"), description="folder with ckpt files")
-    config_path: Path = Field(default=Path("resources/config.geojson"), description="GeoJSON file for UP42 downloads")
     dates_path: Path = Field(default=Path("resources/dates.json"), description="Predicted dates JSON file")
+    geojson_path: Path = Field(default=Path("resources/features.geojson"), description="Features to download from UP42")
     input_path: Path = Field(default=Path("images/downloaded"), description="Downloaded images folder (zip/tif files)")
     output_path: Path = Field(default=Path("images/predicted"), description="Processed images folder (predictions)")
-    #   Like '.env' file: Do not commit credentials to version control!
-    google_creds_path: Path = Field(default=Path("secrets/google_credentials.json"), description="Google credentials")
-    up42_creds_path: Path = Field(default=Path("secrets/up42_credentials.json"), description="UP42 credentials")
 
     # Processing
     bucket_name: str = Field(default="marinelitter_predicted", description="Google Cloud Storage bucket name")
-    days_before: int = Field(default=2, description="Search for images at date back from today")
+    clouds_perc_max: int = Field(default=50, description="Maximum cloud coverage [%] for images to download")
+    days_before: int = Field(default=2, ge=1, le=100, description="Search for images at date back from today")
+    days_num: int = Field(default=1, ge=1, le=100, description="Number of days starting at date given by 'days_before'")
     device: str = Field(default="cpu", description="Options: cpu|cuda")
     order_workers: int = Field(default=3, description="Number of parallel workers for ordering (download)")
     predict_workers: int = Field(default=1, description="Number of parallel workers for prediction")
-    product_id: str = Field(default=DFT_PRODUCT_ID, description="See `up42.Catalog.construct_order_parameters`")
+    product_name: str = Field(default=DFT_PRODUCT_NAME, description="See https://docs.up42.com/sdk/sdk-glossary")
 
     @field_validator(
         "checkpoints",
-        "config_path",
         "dates_path",
+        "geojson_path",
+        "google_creds_path",
         "input_path",
         "output_path",
-        "google_creds_path",
         "up42_creds_path",
         mode="before",
     )
@@ -73,6 +77,10 @@ class MLSettings(BaseSettings):
         if env_file and not Path(env_file).is_file():
             raise FileNotFoundError(str(env_file))
         super().__init__(_env_prefix="ML_", _env_file=str(env_file), _env_file_encoding="utf-8", **kwargs)
+        # for robustness: remove possible quotes/spaces for all string fields
+        for field_name, field_info in self.model_fields.items():
+            if field_info.annotation is str:
+                setattr(self, field_name, getattr(self, field_name).strip("\"' \t"))
 
     def as_tuples(self):
         return [
