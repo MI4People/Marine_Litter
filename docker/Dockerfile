@@ -13,14 +13,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && python -c "from osgeo import gdal; print(f'Python gdal: {gdal.__version__}')" || exit 1
 
-# Add venv to PATH so python can be called directly.
-# Configure uv to avoid some CLI parameters (https://docs.astral.sh/uv/reference/cli/).
+# Add venv to PATH so python can be called directly, and
+# configure uv to avoid some CLI parameters (https://docs.astral.sh/uv/reference/cli/).
 ENV PATH="/root/.local/bin:/marine_litter/.venv/bin:${PATH}" \
-    UV_FROZEN=1 \
     UV_LINK_MODE=copy \
-    UV_NO_DEV=1 \
-    UV_PROJECT_ENVIRONMENT=/marine_litter/.venv \
-    UV_SYSTEM_PYTHON=1
+    UV_NO_DEV=1
 
 WORKDIR /marine_litter
 
@@ -32,12 +29,15 @@ RUN mkdir -p images/downloaded \
     && wget --no-check-certificate "http://dalic.de/mi4people/${MODEL_CKPT}" \
     && mv "${MODEL_CKPT}" /root/.cache/torch/hub/checkpoints/"${MODEL_CKPT}"
 
+# NOTE, especially torch and cuda dependencies are huge, so we need to
+# - use layering (to save `docker build` time)
+# - keep the cache outside the Docker image (to save download time and image size)
 # Dependencies (change less frequently)
 COPY ../pyproject.toml .
 COPY ../uv.lock .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv venv --system-site-packages .venv \
-    && uv sync --no-install-project
+    && uv sync --frozen --no-install-project
 
 # Copy code (changes more frequently), and provide project
 COPY ../LICENSE.txt .
@@ -46,6 +46,6 @@ COPY ../resources/ ./resources
 COPY ../scripts/ ./scripts
 COPY ../src/ ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --frozen
 
 CMD ["/bin/bash"]
