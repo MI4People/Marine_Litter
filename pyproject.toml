@@ -31,7 +31,7 @@ dependencies = [
     "pydantic-settings",
     "torch==2.9.1+cu130",
     "torchvision==0.24.1+cu130",
-    "up42-py>=2.6,<3",  # TODO v3 migration
+    "up42-py>=3",
 ]
 
 # Best install uv and ruff in addition to Python (globally, not in venv), e.g.
@@ -50,7 +50,6 @@ dev = [
     "ty",
     "uv_build",
 ]
-dev2 = ["black[d]", "pipdeptree"]  # optional
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
