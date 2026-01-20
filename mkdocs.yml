@@ -1,0 +1,39 @@
+# please keep the entries alphabetically for easier finding and comparison
+
+copyright: 'Copyright © 2025 MI4People'
+
+extra_css:
+  - assets/mkdocs.css
+  ##- assets/mermaid.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:  # 'fence' like 'embedding'
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - toc:
+      permalink: true
+  - admonition
+nav:
+  - Home: index.md
+  - "@MI4People": https://www.mi4people.org/marinelitterdetectionviasatellites
+  - "@GitHub": https://github.com/MI4People/Marine_Litter
+  - "@GEE": https://mi4people.projects.earthengine.app/view/marine-litter
+plugins:
+  - search
+repo_url: https://github.com/MI4People/Marine_Litter
+site_author: MI4People
+site_description: Marine Litter Detection via Satellites
+site_name: Marine Litter
+theme:
+  name: material
+  favicon: assets/MI4People_favicon.png
+  features:
+    - content.code.copy
+  palette:
+    primary: blue-grey
+    accent: teal
