@@ -5,15 +5,15 @@ var position;
 // TO-DO add var for zoom coordinates and timepoints where litter is visible
 var regionArray = {
   'Durban': {
-    'timepoints':['2019-04-19','2019-04-24','2019-04-29'],
-    'imageName':[durban190419, durban190425, durban190429],
+    'timepoints': ['2019-04-19', '2019-04-24', '2019-04-29'],
+    'imageName': [durban190419, durban190425, durban190429],
     'story': 'Flood event on 22nd and 23rd of April 2019 in this region.',
     'pickDate': ['2019-04-24'],
     'pickPosition': [31.078424502408225, -29.855263513511353]
   },
   'Baltic sea': {
-    'timepoints':['2019-06-09','2019-06-10', '2019-06-26', '2019-06-29', '2020-07-13'],
-    'imageName':[image2, image3, image4, image5, image6],
+    'timepoints': ['2019-06-09', '2019-06-10', '2019-06-26', '2019-06-29', '2020-07-13'],
+    'imageName': [image2, image3, image4, image5, image6],
     'story': '',
     'pickDate': ['2019-06-10'],
     'pickPosition': [11.835695130768501, 54.2792381124053]
@@ -61,7 +61,7 @@ var dropdown = ui.Select({
   style: {
     margin: '5px 0 20px 0'
   },
-  onChange: function(region) {
+  onChange: function (region) {
     selectedRegion = region;
     var details = regionArray[region];
     timepoint.items().reset(details.timepoints);
@@ -101,7 +101,7 @@ var timepoint = ui.Select({
   style: {
     margin: '5px 0 20px 0'
   },
-  onChange: function(selectedTime) {
+  onChange: function (selectedTime) {
     var days = getAdjacentDates(selectedTime);
     var startTime = days.startTime;
     var endTime = days.endTime;
@@ -126,7 +126,7 @@ var disclaimer = ui.Label({
 
 
 //Sidebar
-var sidebar = ui.Panel ({
+var sidebar = ui.Panel({
   layout: ui.Panel.Layout.flow('vertical'),
   widgets: [title, description, dropTitle, dropdown, storyText, timeTitle, timepoint, disclaimer],
   style: {
@@ -152,20 +152,20 @@ function showImage(maskLayer, startTime, endTime, position) {
   var aoi = ee.Geometry.Polygon(frame.coordinates());
 
   var dataset = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-  .filterBounds(aoi)
-  .filterDate(startTime, endTime)
-  .select(['B4', 'B3', 'B2']);
+    .filterBounds(aoi)
+    .filterDate(startTime, endTime)
+    .select(['B4', 'B3', 'B2']);
 
   var meanImage = dataset.mean();
   var rescale = meanImage.divide(10000);
   var clipImage = rescale.clip(aoi);
 
-  var visParam = {bands: ["B4", "B3", "B2"], min: 0, max: 0.4};
+  var visParam = { bands: ["B4", "B3", "B2"], min: 0, max: 0.4 };
   map.addLayer(clipImage, visParam, "Sentinel-2-Image");
 
   var mask = maskLayer.gt(100);
   var maskedImage = maskLayer.updateMask(mask);
-  map.addLayer(maskedImage, {min: 0, max: 237, palette: ['green', 'red']}, 'Marine Litter');
+  map.addLayer(maskedImage, { min: 0, max: 237, palette: ['green', 'red'] }, 'Marine Litter');
 
   if (position === 0) {
     map.centerObject(maskLayer, 12);
