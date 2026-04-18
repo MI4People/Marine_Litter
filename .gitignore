@@ -27,4 +27,3 @@ temp/
 .tif
 .up42
 secrets.env
-uv.lock
