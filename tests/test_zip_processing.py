@@ -77,3 +77,20 @@ def test_process_zip_error_unrelated_xml(tmp_path):
 
     with pytest.raises(ValueError, match="Tag TILE_ID not found in 'metadata.xml'"):
         process_zip(test_zip)
+
+
+def test_process_zip_error_zipslip(tmp_path):
+    """ML-048: ZIP with path traversal entry must be rejected."""
+    test_zip = tmp_path / "test.zip"
+    with zipfile.ZipFile(test_zip, "w") as zf:
+        zf.writestr("B01.tif", b"\x00" * 100)
+        zf.writestr("metadata.xml", "<root></root>")
+        # Malicious entry that tries to escape the extract directory
+        zf.writestr("../escape.txt", "malicious content")
+
+    with pytest.raises(ValueError, match="ZipSlip detected"):
+        process_zip(test_zip)
+
+    # Verify the escaped file was NOT created
+    assert not (tmp_path / "escape.txt").exists()
+

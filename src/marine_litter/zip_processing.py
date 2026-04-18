@@ -14,6 +14,10 @@ def process_zip(zip_path: Path) -> Path:
     """
     extract_dir = zip_path.parent / zip_path.stem
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        for member in zip_ref.infolist():
+            member_path = (extract_dir / member.filename).resolve()
+            if not member_path.is_relative_to(extract_dir.resolve()):
+                raise ValueError(f"ZipSlip detected: '{member.filename}' escapes target directory")
         zip_ref.extractall(extract_dir)
 
     tif_files = sorted(extract_dir.glob("B*.tif"))  # the relevant images to combine

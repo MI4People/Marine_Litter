@@ -26,7 +26,7 @@ RUN mkdir -p images/downloaded \
     && mkdir -p secrets \
     && mkdir -p /root/.cache/torch/hub/checkpoints \
     && MODEL_CKPT='epoch=54-val_loss=0.50-auroc=0.987.ckpt' \
-    && wget --no-check-certificate "http://dalic.de/mi4people/${MODEL_CKPT}" \
+    && wget "https://dalic.de/mi4people/${MODEL_CKPT}" \
     && mv "${MODEL_CKPT}" /root/.cache/torch/hub/checkpoints/"${MODEL_CKPT}"
 
 # NOTE, especially torch and cuda dependencies are huge, so we need to

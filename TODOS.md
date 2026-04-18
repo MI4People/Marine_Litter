@@ -22,8 +22,8 @@ Tasks are grouped into **12 phases** ordered by dependency chains, risk reductio
 ### Phase 2 — Security Fixes *(high-impact, before any deployment)*
 | # | ID | Title | Rationale |
 |---|------|-------|-----------|
-| 7 | ML-048 | ZipSlip path traversal in `extractall()` | Security vulnerability, even with trusted source |
-| 8 | ML-049 | Model checkpoint over insecure HTTP | MITM attack vector on ML weights |
+| 7 | ML-048 | ~~ZipSlip path traversal in `extractall()`~~ ✅ | Security vulnerability, even with trusted source |
+| 8 | ML-049 | ~~Model checkpoint over insecure HTTP~~ ✅ | MITM attack vector on ML weights |
 
 ### Phase 3 — Remove Hacks & Stabilize Imports *(eliminate fragile patterns before refactoring)*
 | # | ID | Title | Rationale |
@@ -1184,15 +1184,8 @@ zip_ref.extractall(extract_dir)
 `zipfile.ZipFile.extractall()` is vulnerable to **ZipSlip** attacks — a malicious ZIP containing entries like `../../etc/passwd` can write files outside the target directory. While the project currently only processes ZIP files downloaded from UP42 (a trusted source), this is a critical security best practice.
 
 **Acceptance Criteria**
-- [ ] Add path traversal validation before extraction:
-  ```python
-  for member in zip_ref.namelist():
-      member_path = (extract_dir / member).resolve()
-      if not member_path.is_relative_to(extract_dir.resolve()):
-          raise ValueError(f"Zip contains unsafe path: {member}")
-  zip_ref.extractall(extract_dir)
-  ```
-- [ ] Add a test with a crafted ZIP containing a `../` path.
+- [x] Add path traversal validation before extraction. *(done: `zip_processing.py:17-20` — validates each member with `is_relative_to()`)*
+- [x] Add a test with a crafted ZIP containing a `../` path. *(done: `test_process_zip_error_zipslip`)*
 
 **Technical Notes**
 - Python 3.12+ `zipfile` module has improved protections, but explicit validation is still recommended.
@@ -1212,13 +1205,10 @@ The model checkpoint is downloaded over **plain HTTP** with `--no-check-certific
 2. **Supply chain attacks** — the downloaded weights are loaded by `torch.load()`.
 
 **Acceptance Criteria**
-- [ ] Switch to HTTPS if the server supports it: `https://dalic.de/mi4people/${MODEL_CKPT}`.
-- [ ] Remove `--no-check-certificate`.
-- [ ] If HTTPS is not available, add a checksum verification step:
-  ```dockerfile
-  && echo "<sha256hash>  ${MODEL_CKPT}" | sha256sum -c -
-  ```
-- [ ] Document the model provenance and expected checksum in `docker/readme.md`.
+- [x] Switch to HTTPS: `https://dalic.de/mi4people/${MODEL_CKPT}`. *(done: `Dockerfile:29`)*
+- [x] Remove `--no-check-certificate`. *(done: `Dockerfile:29`)*
+- [ ] If HTTPS is not available, add a checksum verification step. *(N/A — HTTPS is used)*
+- [ ] Document the model provenance and expected checksum in `docker/readme.md`. *(deferred — not blocking)*
 
 **Technical Notes**
 - The checkpoint is loaded with `torch.load(checkpoint_path, weights_only=True)` — `weights_only=True` mitigates some deserialization attacks, but a tampered weights file can still produce malicious model outputs.
