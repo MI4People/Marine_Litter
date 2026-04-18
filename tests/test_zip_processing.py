@@ -55,3 +55,25 @@ def test_process_zip_error_tile_id(tmp_path):
 
     with pytest.raises(ValueError, match="TILE_ID not found in 'metadata.xml'"):
         process_zip(test_zip)
+
+
+def test_process_zip_error_closing_tile_id_without_opening(tmp_path):
+    """ML-043: Closing </TILE_ID> present but no opening tag — the old code silently extracted garbage."""
+    test_zip = tmp_path / "test.zip"
+    with zipfile.ZipFile(test_zip, "w") as zf:
+        zf.writestr("B01.tif", b"\x00" * 100)
+        zf.writestr("metadata.xml", "<root><OTHER>data</OTHER></TILE_ID></root>")
+
+    with pytest.raises(ValueError, match="Tag TILE_ID not found in 'metadata.xml'"):
+        process_zip(test_zip)
+
+
+def test_process_zip_error_unrelated_xml(tmp_path):
+    """ML-043: Completely unrelated XML content with no TILE_ID at all."""
+    test_zip = tmp_path / "test.zip"
+    with zipfile.ZipFile(test_zip, "w") as zf:
+        zf.writestr("B01.tif", b"\x00" * 100)
+        zf.writestr("metadata.xml", '<?xml version="1.0"?><data><item key="foo">bar</item></data>')
+
+    with pytest.raises(ValueError, match="Tag TILE_ID not found in 'metadata.xml'"):
+        process_zip(test_zip)

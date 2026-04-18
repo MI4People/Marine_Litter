@@ -108,7 +108,7 @@ var timepoint = ui.Select({
     var timepointIndex = regionArray[selectedRegion].timepoints.indexOf(selectedTime);
     var maskLayer = regionArray[selectedRegion].imageName[timepointIndex];
     showImage(maskLayer, startTime, endTime, position);
-    position == 0;
+    position = 0;
   }
 });
 

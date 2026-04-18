@@ -12,12 +12,12 @@ Tasks are grouped into **12 phases** ordered by dependency chains, risk reductio
 ### Phase 1 — Quick Bug Fixes *(no dependencies, minutes each, immediate risk reduction)*
 | # | ID | Title | Rationale |
 |---|------|-------|-----------|
-| 1 | ML-009 | `cpu_or_cuda.upper` → `.upper()` | One-line fix, currently logs garbage |
-| 2 | ML-043 | TILE_ID XML `find()` off-by-one | Silent data corruption on malformed XML |
-| 3 | ML-045 | `cloud_coverage:5.1f` crashes on `None` | Runtime crash on SAR scenes |
-| 4 | ML-044 | `"FAILED"` → `"FAILED_PERMANENTLY"` | Failed orders never detected, poll until timeout |
-| 5 | ML-046 | Replace `assert` with proper error handling | Stripped by `python -O` |
-| 6 | ML-030 | GEE JS `position == 0` → `= 0` | No-op assignment in JS prototype |
+| 1 | ML-009 | ~~`cpu_or_cuda.upper` → `.upper()`~~ ✅ | One-line fix, currently logs garbage |
+| 2 | ML-043 | ~~TILE_ID XML `find()` off-by-one~~ ✅ | Silent data corruption on malformed XML |
+| 3 | ML-045 | ~~`cloud_coverage:5.1f` crashes on `None`~~ ✅ | Runtime crash on SAR scenes |
+| 4 | ML-044 | ~~`"FAILED"` → `"FAILED_PERMANENTLY"`~~ ✅ | Failed orders never detected, poll until timeout |
+| 5 | ML-046 | ~~Replace `assert` with proper error handling~~ ✅ | Stripped by `python -O` |
+| 6 | ML-030 | ~~GEE JS `position == 0` → `= 0`~~ ✅ | No-op assignment in JS prototype |
 
 ### Phase 2 — Security Fixes *(high-impact, before any deployment)*
 | # | ID | Title | Rationale |
@@ -332,8 +332,8 @@ log.info(f"Predict '{tif_file.name}' using {cpu_or_cuda.upper}")
 `str.upper` is a method — this logs the **method object** (e.g. `<built-in method upper of str object at 0x…>`) instead of `"CUDA"` or `"CPU"`. Should be `cpu_or_cuda.upper()`.
 
 **Acceptance Criteria**
-- [ ] Fix to `cpu_or_cuda.upper()`.
-- [ ] Add a test that validates the log message content.
+- [x] Fix to `cpu_or_cuda.upper()`. *(done: `tif_processing.py:25`)*
+- [x] Add a test that validates the log message content. *(done: `test_predict_litter_log_message_shows_uppercased_device`, `test_predict_litter_log_message_cpu`)*
 
 **Technical Notes**
 - Simple one-line fix but this indicates insufficient test coverage for the log output of `predict_litter()`.
@@ -1069,18 +1069,9 @@ If `find(start_tag)` returns `-1` (tag not found), then `start_index = -1 + len(
 The existing test `test_process_zip_error_tile_id` passes only because the metadata content `<root><OTHER_TAG>value</OTHER_TAG></root>` happens to make `end_index == -1`, which catches the error. But if the metadata coincidentally contains `</TILE_ID>` somewhere else, the bug would produce wrong tile IDs silently.
 
 **Acceptance Criteria**
-- [ ] Fix by checking `find()` result **before** adding `len(start_tag)`:
-  ```python
-  raw_index = metadata_content.find(start_tag)
-  if raw_index == -1:
-      raise ValueError(f"Tag TILE_ID not found in '{metadata_file.name}'")
-  start_index = raw_index + len(start_tag)
-  end_index = metadata_content.find(end_tag, start_index)
-  if end_index == -1:
-      raise ValueError(f"Closing </TILE_ID> not found in '{metadata_file.name}'")
-  ```
-- [ ] Add a test with metadata that has `</TILE_ID>` but no opening tag.
-- [ ] Add a test with completely unrelated XML content.
+- [x] Fix by checking `find()` result **before** adding `len(start_tag)`. *(done: `zip_processing.py:32-38`)*
+- [x] Add a test with metadata that has `</TILE_ID>` but no opening tag. *(done: `test_process_zip_error_closing_tile_id_without_opening`)*
+- [x] Add a test with completely unrelated XML content. *(done: `test_process_zip_error_unrelated_xml`)*
 
 **Technical Notes**
 - This is a classic off-by-one from doing arithmetic on a sentinel value (`-1`).
@@ -1104,10 +1095,10 @@ if timed_out or order.status == "FAILED":
 This also never matches, so a failed order always looks like a timeout.
 
 **Acceptance Criteria**
-- [ ] Change `"FAILED"` to `"FAILED_PERMANENTLY"` in both places.
-- [ ] Also handle `"CANCELED"` status (another terminal state in v3.4.0).
-- [ ] Add constants or import `OrderStatus` types to avoid magic strings.
-- [ ] Add a test that verifies failed order detection.
+- [x] Change `"FAILED"` to `"FAILED_PERMANENTLY"` in both places. *(done: `download_from_up42.py:183,191` — uses `ORDER_TERMINAL_FAILURE_STATES` frozenset)*
+- [x] Also handle `"CANCELED"` status (another terminal state in v3.4.0). *(done: included in `ORDER_TERMINAL_FAILURE_STATES`)*
+- [x] Add constants or import `OrderStatus` types to avoid magic strings. *(done: `ORDER_TERMINAL_FAILURE_STATES` constant at line 51)*
+- [x] Add a test that verifies failed order detection. *(done: `test_download_from_up42.py::TestOrderTerminalFailureStates` — 10 tests)*
 
 **Technical Notes**
 - v3.4.0 `OrderStatus` values: `CREATED`, `BEING_PLACED`, `PLACED`, `BEING_FULFILLED`, `FULFILLED`, `FAILED_PERMANENTLY`, `CANCELED`, `PLACEMENT_FAILED`.
@@ -1125,12 +1116,8 @@ log_lines.append(f"    {time_str} '{scene.id}':{scene.cloud_coverage:5.1f}% clou
 `Scene.cloud_coverage` is typed as `float | None` in UP42 v3.4.0. When it is `None`, the format spec `:5.1f` raises `TypeError: unsupported format character`.
 
 **Acceptance Criteria**
-- [ ] Guard against `None`:
-  ```python
-  cloud_str = f"{scene.cloud_coverage:5.1f}" if scene.cloud_coverage is not None else "  N/A"
-  log_lines.append(f"    {time_str} '{scene.id}':{cloud_str}% clouds")
-  ```
-- [ ] Add a unit test with a scene that has `cloud_coverage=None`.
+- [x] Guard against `None`. *(done: `download_from_up42.py:151-152`)*
+- [x] Add a unit test with a scene that has `cloud_coverage=None`. *(done: `test_download_from_up42.py::TestCloudCoverageFormatting` — 5 tests)*
 
 **Technical Notes**
 - `Scene.cloud_coverage` comes from `properties.get("cloudCoverage")` which returns `None` for SAR or some non-optical data products.
@@ -1147,12 +1134,8 @@ assert len(order_by_scene_id) == len(results)
 `assert` statements are stripped when Python runs with `-O` (optimize) flag. Using `assert` for runtime validation in production code is an anti-pattern — it should use an explicit `if` + `raise`.
 
 **Acceptance Criteria**
-- [ ] Replace with:
-  ```python
-  if len(order_by_scene_id) != len(results):
-      log.error(f"Order count mismatch: expected {len(order_by_scene_id)}, got {len(results)}")
-  ```
-- [ ] Or remove entirely — `asyncio.gather` guarantees result count matches input count.
+- [x] Replace with `if` + `log.error`. *(done: `download_from_up42.py:219-220`)*
+- [x] ~~Or remove entirely~~ — kept as a defensive guard with `log.error` instead of `assert`.
 
 **Technical Notes**
 - `asyncio.gather` with `return_exceptions=True` always returns exactly one result per input coroutine. The assert is technically redundant but guards against a coding error. Logging the inconsistency is better than asserting.

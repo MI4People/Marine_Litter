@@ -29,10 +29,13 @@ def process_zip(zip_path: Path) -> Path:
     metadata_content = metadata_file.read_text(encoding="utf-8")
     start_tag = '<TILE_ID metadataLevel="Brief">'
     end_tag = "</TILE_ID>"
-    start_index = metadata_content.find(start_tag) + len(start_tag)
-    end_index = metadata_content.find(end_tag, start_index)
-    if start_index == -1 or end_index == -1:
+    raw_index = metadata_content.find(start_tag)
+    if raw_index == -1:
         raise ValueError(f"Tag TILE_ID not found in '{metadata_file.name}'")
+    start_index = raw_index + len(start_tag)
+    end_index = metadata_content.find(end_tag, start_index)
+    if end_index == -1:
+        raise ValueError(f"Closing </TILE_ID> not found in '{metadata_file.name}'")
 
     # merge bands into one file
     tile_id = metadata_content[start_index:end_index].strip()

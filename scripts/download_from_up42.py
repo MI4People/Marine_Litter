@@ -48,6 +48,9 @@ log = logging.getLogger(__name__)
 
 DEFAULT_POLLING_TO = 20 * 60.0  # polling for order fulfillment timeout
 
+# Terminal failure states in UP42 v3.4.0 (OrderStatus is a Literal type, not an enum)
+ORDER_TERMINAL_FAILURE_STATES = frozenset({"FAILED_PERMANENTLY", "CANCELED", "PLACEMENT_FAILED"})
+
 
 @dataclass
 class ProductInfo:
@@ -148,7 +151,8 @@ def determine_scenes(host, params: SceneSearchParams) -> list[Scene]:
             log_lines.append(f"  {s_date} ({len(l_scenes)}):")
             for i, scene in enumerate(sorted(l_scenes, key=lambda sc: sc.datetime or ""), 1):
                 time_str = scene.datetime[11:19] if scene.datetime else f"? {i:6}"
-                log_lines.append(f"    {time_str} '{scene.id}':{scene.cloud_coverage:5.1f}% clouds")
+                cloud_str = f"{scene.cloud_coverage:5.1f}" if scene.cloud_coverage is not None else "  N/A"
+                log_lines.append(f"    {time_str} '{scene.id}':{cloud_str}% clouds")
         log.info("\n".join(log_lines))
     return scenes
 
@@ -176,7 +180,7 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
     try:
         start_time = datetime.now()
         timed_out = False
-        while not order.is_fulfilled and order.status != "FAILED":
+        while not order.is_fulfilled and order.status not in ORDER_TERMINAL_FAILURE_STATES:
             await asyncio.sleep(6.0)
             order: Order = await asyncio.to_thread(Order.get, order.id)
             order.track()
@@ -185,8 +189,8 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
                 break
 
         duration = datetime.now() - start_time
-        if timed_out or order.status == "FAILED":
-            log.error(f"Order {order.id} failed after {duration}")
+        if timed_out or order.status in ORDER_TERMINAL_FAILURE_STATES:
+            log.error(f"Order {order.id} {order.status} after {duration}")
             return False
         log.info(f"Order {order.id} fulfilled after {duration}")
 
@@ -212,7 +216,8 @@ async def process_orders_concurrently(order_by_scene_id: dict[str, Order], downl
         elif result is False:
             failures += 1
     log.info(f"...completed {len(results)} orders, {failures} failed.")
-    assert len(order_by_scene_id) == len(results)
+    if len(order_by_scene_id) != len(results):
+        log.error(f"Order count mismatch: expected {len(order_by_scene_id)}, got {len(results)}")
 
 
 def place_orders(scenes: list[Scene], product_info, features: FeatureCollection) -> dict:

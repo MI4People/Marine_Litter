@@ -22,7 +22,7 @@ def predict_litter(tif_file: Path, cpu_or_cuda: str, checkpoint_path: Path | Non
 
     :returns: output filename if successful, else `None`.
     """
-    log.info(f"Predict '{tif_file.name}' using {cpu_or_cuda.upper}")
+    log.info(f"Predict '{tif_file.name}' using {cpu_or_cuda.upper()}")
     if checkpoint_path and not checkpoint_path.is_file():
         log.warning(f"'{checkpoint_path.name}' does not exist -> use default weights")
     try:

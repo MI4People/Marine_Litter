@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -38,3 +39,18 @@ def test_run_prediction_logs(caplog):
     assert result is None
     assert "does not exist -> use default weights" in caplog.text
     assert "Error processing" in caplog.text
+
+
+def test_predict_litter_log_message_shows_uppercased_device(caplog):
+    """ML-009: Verify log shows 'CUDA' or 'CPU', not the method object repr."""
+    with caplog.at_level(logging.INFO):
+        predict_litter(Path("nonexistent.tif"), "cuda", None)
+    assert "using CUDA" in caplog.text
+    assert "built-in method upper" not in caplog.text
+
+
+def test_predict_litter_log_message_cpu(caplog):
+    """ML-009: Verify log shows 'CPU' when device is cpu."""
+    with caplog.at_level(logging.INFO):
+        predict_litter(Path("nonexistent.tif"), "cpu", None)
+    assert "using CPU" in caplog.text
