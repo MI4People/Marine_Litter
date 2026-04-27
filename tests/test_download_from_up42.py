@@ -1,6 +1,7 @@
 import logging
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -96,3 +97,130 @@ class TestOrderTerminalFailureStates:
         """ML-044: The old bug used 'FAILED' which is not a valid UP42 v3.4.0 status."""
         terminal_states = frozenset({"FAILED_PERMANENTLY", "CANCELED", "PLACEMENT_FAILED"})
         assert "FAILED" not in terminal_states
+
+
+class TestUp42VersionCheckDisabled:
+    """ML-002: Verify UP42_DISABLE_VERSION_CHECK env var is set."""
+
+    def test_env_var_is_set_in_download_script(self):
+        """ML-002: download_from_up42.py must set the env var via os.environ.setdefault."""
+        script = Path(__file__).resolve().parent.parent / "scripts" / "download_from_up42.py"
+        content = script.read_text(encoding="utf-8")
+        assert 'os.environ.setdefault("UP42_DISABLE_VERSION_CHECK"' in content
+
+    def test_env_var_documented_in_example_env(self, project_root):
+        """ML-002: .example.env must document UP42_DISABLE_VERSION_CHECK (as comment, since MLSettings forbids extras)."""
+        example_env = project_root / ".example.env"
+        content = example_env.read_text(encoding="utf-8")
+        assert "UP42_DISABLE_VERSION_CHECK" in content
+
+    def test_env_var_in_docker_compose(self, project_root):
+        """ML-002: docker-compose.yml must set UP42_DISABLE_VERSION_CHECK."""
+        compose_file = project_root / "docker" / "docker-compose.yml"
+        content = compose_file.read_text(encoding="utf-8")
+        assert "UP42_DISABLE_VERSION_CHECK" in content
+
+
+class TestUp42LoggerConfiguration:
+    """ML-003: Verify UP42 loggers are reconfigured to propagate to root."""
+
+    def test_script_configures_root_up42_logger(self):
+        """ML-003: download_from_up42.py must explicitly configure root 'up42' logger."""
+        script = Path(__file__).resolve().parent.parent / "scripts" / "download_from_up42.py"
+        content = script.read_text(encoding="utf-8")
+        # Verify root logger is explicitly addressed (not just child iteration)
+        assert 'logging.getLogger("up42")' in content
+        assert ".propagate = True" in content
+        assert ".handlers.clear()" in content
+
+    def test_script_does_not_monkey_patch(self):
+        """ML-003: No _patched_get_logger or utils.get_logger reassignment."""
+        script = Path(__file__).resolve().parent.parent / "scripts" / "download_from_up42.py"
+        content = script.read_text(encoding="utf-8")
+        assert "_patched_get_logger" not in content
+        assert "utils.get_logger =" not in content
+        assert "utils.get_logger=" not in content
+
+    def test_logger_propagation_pattern_works(self):
+        """ML-003: Verify the reconfiguration pattern actually works on a mock logger hierarchy."""
+        # Simulate what download_from_up42.py does
+        test_root = logging.getLogger("_test_up42_pattern")
+        test_child = logging.getLogger("_test_up42_pattern.child")
+        # Add a handler to simulate UP42 SDK default behaviour
+        test_root.addHandler(logging.StreamHandler())
+        test_root.propagate = False
+
+        # Apply the same pattern used in download_from_up42.py
+        test_root.handlers.clear()
+        test_root.propagate = True
+
+        assert test_root.propagate is True
+        assert len(test_root.handlers) == 0
+        assert test_child.propagate is True  # children inherit by default
+
+    def test_up42_log_level_respects_basicconfig(self):
+        """ML-003: UP42 loggers must respect the configured log level via propagation."""
+        # When propagate=True and no handlers, the effective level comes from parent/root
+        test_logger = logging.getLogger("_test_up42_level")
+        test_logger.handlers.clear()
+        test_logger.propagate = True
+        test_logger.setLevel(logging.NOTSET)  # inherit from parent
+
+        # Root logger level controls what gets through
+        root_level = logging.getLogger().getEffectiveLevel()
+        assert test_logger.getEffectiveLevel() == root_level
+
+
+class TestProductionConstantIntegrity:
+    """Verify production constants in download_from_up42.py match expected values."""
+
+    @staticmethod
+    def _script_path() -> Path:
+        return Path(__file__).resolve().parent.parent / "scripts" / "download_from_up42.py"
+
+    def test_order_terminal_failure_states_includes_failed_permanently(self):
+        """ML-044: The actual source must include FAILED_PERMANENTLY."""
+        content = self._script_path().read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if "ORDER_TERMINAL_FAILURE_STATES" in line and "frozenset" in line:
+                assert '"FAILED_PERMANENTLY"' in line
+                return
+        pytest.fail("ORDER_TERMINAL_FAILURE_STATES constant not found in source")
+
+    def test_order_terminal_failure_states_includes_canceled(self):
+        """ML-044: The actual source must include CANCELED."""
+        content = self._script_path().read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if "ORDER_TERMINAL_FAILURE_STATES" in line and "frozenset" in line:
+                assert '"CANCELED"' in line
+                return
+        pytest.fail("ORDER_TERMINAL_FAILURE_STATES constant not found in source")
+
+    def test_order_terminal_failure_states_includes_placement_failed(self):
+        """ML-044: The actual source must include PLACEMENT_FAILED."""
+        content = self._script_path().read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if "ORDER_TERMINAL_FAILURE_STATES" in line and "frozenset" in line:
+                assert '"PLACEMENT_FAILED"' in line
+                return
+        pytest.fail("ORDER_TERMINAL_FAILURE_STATES constant not found in source")
+
+    def test_old_failed_string_not_sole_constant(self):
+        """ML-044: The old buggy 'FAILED' must not be the only terminal state."""
+        content = self._script_path().read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if "ORDER_TERMINAL_FAILURE_STATES" in line and "frozenset" in line:
+                assert line != 'ORDER_TERMINAL_FAILURE_STATES = frozenset({"FAILED"})'
+                return
+
+
+class TestNoAssertInProduction:
+    """ML-046: Verify no bare `assert` statements are used for production validation."""
+
+    def test_download_script_has_no_bare_assert(self):
+        script = Path(__file__).resolve().parent.parent / "scripts" / "download_from_up42.py"
+        content = script.read_text(encoding="utf-8")
+        for i, line in enumerate(content.splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("assert ") and not stripped.startswith("# "):
+                pytest.fail(f"download_from_up42.py:{i} uses bare 'assert': {stripped}")

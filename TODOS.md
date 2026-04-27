@@ -28,10 +28,10 @@ Tasks are grouped into **12 phases** ordered by dependency chains, risk reductio
 ### Phase 3 — Remove Hacks & Stabilize Imports *(eliminate fragile patterns before refactoring)*
 | # | ID | Title | Rationale |
 |---|------|-------|-----------|
-| 9 | ML-002 | Remove `MagicMock` → use `UP42_DISABLE_VERSION_CHECK` | Removes `unittest.mock` from prod; unblocks clean imports |
-| 10 | ML-017 | Remove `unittest.mock` from production code | Depends on ML-002 |
-| 11 | ML-003 | Remove logger monkey-patch | Fragile; may break on SDK update |
-| 12 | ML-047 | GDAL dataset leak in `get_tiff_layout()` | Resource leak, especially in multi-GPU |
+| 9 | ML-002 | ~~Remove `MagicMock` → use `UP42_DISABLE_VERSION_CHECK`~~ ✅ | Removes `unittest.mock` from prod; unblocks clean imports |
+| 10 | ML-017 | ~~Remove `unittest.mock` from production code~~ ✅ | Depends on ML-002 |
+| 11 | ML-003 | ~~Remove logger monkey-patch~~ ✅ | Fragile; may break on SDK update |
+| 12 | ML-047 | ~~GDAL dataset leak in `get_tiff_layout()`~~ ✅ | Resource leak, especially in multi-GPU |
 
 ### Phase 4 — Configuration & Settings Foundation *(must be done before features that add settings)*
 | # | ID | Title | Rationale |
@@ -166,11 +166,11 @@ if "up42.version.version_control" not in sys.modules:
 Since **up42-py v3.2.0**, the SDK supports an official environment variable `UP42_DISABLE_VERSION_CHECK` to disable this check. The `MagicMock` approach is brittle, relies on `unittest.mock` in production code, and can mask import-time errors.
 
 **Acceptance Criteria**
-- [ ] Remove the `MagicMock` hack from `download_from_up42.py`.
-- [ ] Set `UP42_DISABLE_VERSION_CHECK=1` via `.env` / Docker environment.
-- [ ] `.example.env` documents this variable.
-- [ ] Docker/`docker-compose.yml` sets this env var.
-- [ ] Import of `up42` works cleanly without any `sys.modules` manipulation.
+- [x] Remove the `MagicMock` hack from `download_from_up42.py`. *(done: replaced with `os.environ.setdefault("UP42_DISABLE_VERSION_CHECK", "true")`)*
+- [x] Set `UP42_DISABLE_VERSION_CHECK=1` via `.env` / Docker environment. *(done: set in Python code + `docker-compose.yml`)*
+- [x] `.example.env` documents this variable. *(done: documented as comment — cannot be a live variable due to `MLSettings(extra='forbid')`)*
+- [x] Docker/`docker-compose.yml` sets this env var. *(done: `docker-compose.yml` environment section)*
+- [x] Import of `up42` works cleanly without any `sys.modules` manipulation. *(done: direct import after env var set)*
 
 **Technical Notes**
 - Changelog v3.2.0a6: _"Check environment variable UP42_DISABLE_VERSION_CHECK to disable checking the latest SDK version based on its value."_
@@ -188,15 +188,15 @@ Since **up42-py v3.2.0**, the SDK supports an official environment variable `UP4
 3. A cleaner approach is to configure the `"up42"` logger hierarchy via Python's standard `logging` module after import.
 
 **Acceptance Criteria**
-- [ ] Remove the `_patched_get_logger` function and `utils.get_logger` reassignment.
-- [ ] After `import up42`, reconfigure UP42 loggers properly:
+- [x] Remove the `_patched_get_logger` function and `utils.get_logger` reassignment. *(done: no monkey-patching exists)*
+- [x] After `import up42`, reconfigure UP42 loggers properly: *(done: root `"up42"` logger + child loggers reconfigured)*
   ```python
   up42_logger = logging.getLogger("up42")
   up42_logger.handlers.clear()
   up42_logger.propagate = True
   ```
-- [ ] Logging output from UP42 SDK appears in the project's standard format.
-- [ ] Log level is respected per `MLSettings.log_level`.
+- [x] Logging output from UP42 SDK appears in the project's standard format. *(done: propagation ensures root handler format is used)*
+- [x] Log level is respected per `MLSettings.log_level`. *(done: propagation + NOTSET on `up42` logger inherits root level)*
 
 **Technical Notes**
 - `up42.utils.get_logger()` in v3.4.0 still creates its own `StreamHandler` with `propagate = False`. The cleanest fix is to reconfigure after import.
@@ -482,7 +482,7 @@ This condition is always `False` (negation of a truthy string). It's dead code w
 Beyond the version-check mock (ML-002), the import of `unittest.mock.MagicMock` in production script code is an anti-pattern. Once ML-002 is resolved, this import can be removed entirely.
 
 **Acceptance Criteria**
-- [ ] No `unittest.mock` imports exist in any `scripts/*.py` or `src/**/*.py` file.
+- [x] No `unittest.mock` imports exist in any `scripts/*.py` or `src/**/*.py` file. *(verified: zero occurrences)*
 
 **Technical Notes**
 - Depends on ML-002 being completed first.
@@ -670,8 +670,8 @@ UP42 v3.4.0 added `Job`, `JobSorting`, `JobStatus` and processing templates (`Tr
 `web_gee/GEE-Prototype.js` line 111: `position == 0;` uses comparison (`==`) instead of assignment (`=`). It's a no-op.
 
 **Acceptance Criteria**
-- [ ] Fix `position == 0;` to `position = 0;` (or remove if not needed).
-- [ ] Add JavaScript linting configuration (e.g., ESLint).
+- [x] Fix `position == 0;` to `position = 0;` (or remove if not needed). *(done: `GEE-Prototype.js:111`)*
+- [ ] ~~Add JavaScript linting configuration (e.g., ESLint).~~ *(deferred: GEE scripts run in Google's Earth Engine code editor, not a standard Node.js environment — ESLint is not applicable)*
 
 ---
 
@@ -1159,14 +1159,14 @@ The GDAL `Dataset` object `ds` is never explicitly closed. In CPython, the refer
 3. The CPython GC behaviour is an implementation detail, not guaranteed.
 
 **Acceptance Criteria**
-- [ ] Explicitly close the dataset: `ds = None` at the end or wrap in a context manager.
-- [ ] Add error handling for `gdal.Open` returning `None` (file not found / corrupt):
+- [x] Explicitly close the dataset: `ds = None` at the end or wrap in a context manager. *(done: `band = None; ds = None` in `tif_processing.py:71-72`)*
+- [x] Add error handling for `gdal.Open` returning `None` (file not found / corrupt): *(done: `tif_processing.py:61-62`)*
   ```python
   ds = gdal.Open(str(tiff))
   if ds is None:
       raise FileNotFoundError(f"GDAL could not open '{tiff}'")
   ```
-- [ ] Consider the same for `gdal.BuildVRT` and `gdal.Translate` in `zip_processing.py`.
+- [x] Consider the same for `gdal.BuildVRT` and `gdal.Translate` in `zip_processing.py`. *(done: null checks + `FlushCache()` + explicit close for both)*
 
 **Technical Notes**
 - GDAL Python bindings don't support `with` statements. The convention is `ds = None` to trigger the destructor.

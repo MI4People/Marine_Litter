@@ -45,11 +45,17 @@ def process_zip(zip_path: Path) -> Path:
     tile_id = metadata_content[start_index:end_index].strip()
     vrt_filename = zip_path.parent / f"{tile_id}.vrt"
     vrt_options = gdal.BuildVRTOptions(separate=True, srcNodata=0, VRTNodata=0)
-    gdal.BuildVRT(str(vrt_filename), [str(f) for f in tif_files], options=vrt_options)
+    # ML-047: Check BuildVRT result and explicitly close dataset to release file handles
+    vrt_ds = gdal.BuildVRT(str(vrt_filename), [str(f) for f in tif_files], options=vrt_options)
+    if vrt_ds is None:
+        raise RuntimeError(f"GDAL BuildVRT failed for '{zip_path.name}'")
+    vrt_ds.FlushCache()
+    vrt_ds = None  # close dataset before Translate reads it
 
     # final data handling
     combined_tif = vrt_filename.with_suffix(".tif")
-    gdal.Translate(
+    # ML-047: Check Translate result and explicitly close dataset
+    translate_ds = gdal.Translate(
         str(combined_tif),  # to
         str(vrt_filename),  # from
         format="GTiff",  # https://gdal.org/en/stable/drivers/raster/gtiff.html
@@ -57,6 +63,10 @@ def process_zip(zip_path: Path) -> Path:
         outputType=gdal.GDT_Byte,
         noData=0,
     )
+    if translate_ds is None:
+        raise RuntimeError(f"GDAL Translate failed for '{vrt_filename.name}'")
+    translate_ds.FlushCache()
+    translate_ds = None  # close dataset to release file handles
 
     # clean up
     vrt_filename.unlink()

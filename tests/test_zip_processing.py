@@ -94,3 +94,16 @@ def test_process_zip_error_zipslip(tmp_path):
     # Verify the escaped file was NOT created
     assert not (tmp_path / "escape.txt").exists()
 
+
+def test_process_zip_error_zipslip_absolute_path(tmp_path):
+    """ML-048: ZIP with absolute path entry must also be rejected."""
+    test_zip = tmp_path / "test.zip"
+    with zipfile.ZipFile(test_zip, "w") as zf:
+        zf.writestr("B01.tif", b"\x00" * 100)
+        zf.writestr("metadata.xml", "<root></root>")
+        # Absolute path — should be rejected by is_relative_to() check
+        zf.writestr("/etc/passwd", "malicious content")
+
+    with pytest.raises(ValueError, match="ZipSlip detected"):
+        process_zip(test_zip)
+

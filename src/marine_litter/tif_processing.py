@@ -40,11 +40,16 @@ def predict_litter(tif_file: Path, cpu_or_cuda: str, checkpoint_path: Path | Non
         scene_predictor.predict(model, str(tif_file), str(temp_predicted))
 
         result_cog_tif = tif_file.parent / f"{tif_file.stem}_prediction.tif"
-        gdal.Translate(
+        # ML-047: Check Translate result and explicitly close dataset to release file handles
+        cog_ds = gdal.Translate(
             str(result_cog_tif),
             str(temp_predicted),
             options=gdal.TranslateOptions(format="COG", creationOptions=["BLOCKSIZE=256", "COMPRESS=DEFLATE"]),
         )
+        if cog_ds is None:
+            raise RuntimeError(f"GDAL COG translation failed for '{tif_file.name}'")
+        cog_ds.FlushCache()
+        cog_ds = None  # close dataset to release file handles
 
         temp_predicted.unlink()  # remove temporary file
 
@@ -58,6 +63,8 @@ def predict_litter(tif_file: Path, cpu_or_cuda: str, checkpoint_path: Path | Non
 
 def get_tiff_layout(tiff: Path) -> dict:
     ds: Dataset = gdal.Open(str(tiff))
+    if ds is None:
+        raise FileNotFoundError(f"GDAL could not open '{tiff}'")
     band = ds.GetRasterBand(1)
     bx, by = band.GetBlockSize()
     rx, ry = ds.RasterXSize, ds.RasterYSize
@@ -65,6 +72,10 @@ def get_tiff_layout(tiff: Path) -> dict:
     is_tiled = image_structure.get("TILED", "").upper() == "YES" or (bx < rx and by < ry)
     is_striped = not is_tiled and bx == rx and 1 < by < ry
     is_scanline = not is_tiled and bx == rx and by == 1
+
+    # ML-047: Explicitly close GDAL dataset to release file handles
+    band = None
+    ds = None
 
     return {
         "block_size": (bx, by),

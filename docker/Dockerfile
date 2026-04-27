@@ -21,12 +21,20 @@ ENV PATH="/root/.local/bin:/marine_litter/.venv/bin:${PATH}" \
 
 WORKDIR /marine_litter
 
+# Optional: provide SHA256 at build time for supply-chain integrity verification.
+# Usage: docker build --build-arg MODEL_CKPT_SHA256=<hash> ...
+# To compute the hash: sha256sum 'epoch=54-val_loss=0.50-auroc=0.987.ckpt'
+ARG MODEL_CKPT_SHA256=""
+
 RUN mkdir -p images/downloaded \
     && mkdir -p images/predicted \
     && mkdir -p secrets \
     && mkdir -p /root/.cache/torch/hub/checkpoints \
     && MODEL_CKPT='epoch=54-val_loss=0.50-auroc=0.987.ckpt' \
     && wget "https://dalic.de/mi4people/${MODEL_CKPT}" \
+    && if [ -n "${MODEL_CKPT_SHA256}" ]; then \
+         echo "${MODEL_CKPT_SHA256}  ${MODEL_CKPT}" | sha256sum -c - ; \
+       fi \
     && mv "${MODEL_CKPT}" /root/.cache/torch/hub/checkpoints/"${MODEL_CKPT}"
 
 # NOTE, especially torch and cuda dependencies are huge, so we need to

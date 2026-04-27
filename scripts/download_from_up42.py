@@ -14,33 +14,30 @@ from collections.abc import ValuesView
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import geojson
 from geojson import FeatureCollection
 from pystac import Asset
 
-if "up42.version.version_control" not in sys.modules:
-    # Disable version check when importing up42 package to avoid network issues
-    sys.modules["up42.version.version_control"] = MagicMock(check_package_version=MagicMock())
+# ML-002: Use official UP42 env var to disable version check instead of MagicMock hack
+os.environ.setdefault("UP42_DISABLE_VERSION_CHECK", "true")
 
-    from up42 import Order, authenticate, stac_client, utils
-    from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene
-    from up42.order_template import BatchOrderTemplate, OrderError, OrderReference
+from up42 import Order, authenticate, stac_client, utils  # noqa: E402
+from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene  # noqa: E402
+from up42.order_template import BatchOrderTemplate, OrderError, OrderReference  # noqa: E402
 
-    def _patched_get_logger(name: str, level: int = logging.INFO, verbose: bool = False):  # noqa unused `verbose`
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
-        logger.propagate = True
-        return logger
-
-    utils.get_logger = _patched_get_logger  # type: ignore[assignment] (Unknown)
-    for logger_name in logging.Logger.manager.loggerDict:
-        if logger_name.startswith("up42"):
-            logger_obj = logging.getLogger(logger_name)
-            if isinstance(logger_obj, logging.Logger):
-                logger_obj.propagate = True
-                logger_obj.handlers.clear()
+# ML-003: Configure UP42 loggers to propagate to root instead of monkey-patching
+# First, configure the root "up42" logger so all children inherit propagation
+_up42_root_logger = logging.getLogger("up42")
+_up42_root_logger.handlers.clear()
+_up42_root_logger.propagate = True
+# Belt-and-suspenders: also clear handlers on any child loggers already created at import time
+for _logger_name in logging.Logger.manager.loggerDict:
+    if _logger_name.startswith("up42"):
+        _logger_obj = logging.getLogger(_logger_name)
+        if isinstance(_logger_obj, logging.Logger):
+            _logger_obj.propagate = True
+            _logger_obj.handlers.clear()
 
 from marine_litter.ml_settings import MLSettings
 

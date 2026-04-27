@@ -54,3 +54,9 @@ def test_predict_litter_log_message_cpu(caplog):
     with caplog.at_level(logging.INFO):
         predict_litter(Path("nonexistent.tif"), "cpu", None)
     assert "using CPU" in caplog.text
+
+
+def test_get_tiff_layout_nonexistent_file():
+    """ML-047: gdal.Open returns None for nonexistent files — must raise FileNotFoundError."""
+    with pytest.raises(FileNotFoundError, match="GDAL could not open"):
+        get_tiff_layout(Path("this_file_does_not_exist.tif"))
