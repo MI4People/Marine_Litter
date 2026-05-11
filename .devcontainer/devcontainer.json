@@ -9,7 +9,8 @@
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
     "remoteUser": "ubuntu",
-    "postCreateCommand": "uv sync --all-groups",
+    // The image contains the gdal libs in the system site packages, so we need to use the system site packages in the uv venv
+    "postCreateCommand": "uv venv --system-site-packages && uv sync --dev && echo 'source .venv/bin/activate' >> ~/.bashrc",
     "customizations": {
         "vscode": {
             "settings": {
