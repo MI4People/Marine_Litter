@@ -44,7 +44,8 @@ dev = [
     "mkdocs",
     "mkdocs-material",
     "mkdocs-mermaid2-plugin",
-    "pip-tools",  # for readthedocs, see 'docs/requirements.in'
+    "pip-tools",              # for readthedocs, see 'docs/requirements.in'
+    "pre-commit",
     "pytest-cov",
     "pytest-sugar",
     "ty",
