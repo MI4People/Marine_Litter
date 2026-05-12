@@ -10,7 +10,7 @@
     },
     "remoteUser": "ubuntu",
     // The image contains the gdal libs in the system site packages, so we need to use the system site packages in the uv venv
-    "postCreateCommand": "uv venv --system-site-packages && uv sync --dev && echo 'source .venv/bin/activate' >> ~/.bashrc",
+    "postCreateCommand": "uv venv --system-site-packages --clear",
     "customizations": {
         "vscode": {
             "settings": {
