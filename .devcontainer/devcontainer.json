@@ -11,6 +11,11 @@
     "remoteUser": "ubuntu",
     // The image contains the gdal libs in the system site packages, so we need to use the system site packages in the uv venv
     "postCreateCommand": "uv venv --system-site-packages --clear",
+    "mounts": [
+        // Bind the host's uv & pip cache folder to the container's uv/pip cache path
+        "source=${localEnv:HOME}/.cache/uv,target=/home/vscode/.cache/uv,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.cache/pip,target=/home/vscode/.cache/pip,type=bind,consistency=cached"
+    ],
     "customizations": {
         "vscode": {
             "settings": {

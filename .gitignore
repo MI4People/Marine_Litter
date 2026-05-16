@@ -27,3 +27,4 @@ temp/
 .tif
 .up42
 secrets.env
+*.ckpt
