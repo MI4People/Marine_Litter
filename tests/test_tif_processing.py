@@ -6,9 +6,10 @@ import torch
 from marine_litter.tif_processing import get_tiff_layout, predict_litter
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+# @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 @pytest.mark.parametrize("checkpoint_fixture", ["checkpoint_path", None])
-def test_run_prediction_on_file(combined_tif_from_up42_zip, checkpoint_fixture, request):
+@pytest.mark.parametrize("cuda_or_cpu", ["cuda", "cpu"])
+def test_run_prediction_on_file(combined_tif_from_up42_zip, checkpoint_fixture, request, cuda_or_cpu: str):
     info: dict = get_tiff_layout(combined_tif_from_up42_zip)
     assert info["block_size"] == (1176, 1)
     assert info["raster_size"] == (1176, 1176)
@@ -21,7 +22,10 @@ def test_run_prediction_on_file(combined_tif_from_up42_zip, checkpoint_fixture, 
     if checkpoint_path:
         assert checkpoint_path.is_file()
 
-    result_tif = predict_litter(combined_tif_from_up42_zip, "cuda", checkpoint_path)
+    if cuda_or_cpu == "cuda" and (torch.cuda.device_count() == 0 or not torch.cuda.is_available()):
+        pytest.skip("No CUDA devices found, skipping CUDA test")
+
+    result_tif = predict_litter(combined_tif_from_up42_zip, cuda_or_cpu, checkpoint_path)
 
     assert result_tif
     info: dict = get_tiff_layout(result_tif)
