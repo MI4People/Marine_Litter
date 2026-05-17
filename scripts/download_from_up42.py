@@ -17,24 +17,37 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import geojson
+import pystac_client
 from geojson import FeatureCollection
 from pystac import Asset
 
+from marine_litter.ml_settings import MLSettings
+
+log = logging.getLogger(__name__)
+
 if "up42.version.version_control" not in sys.modules:
     # Disable version check when importing up42 package to avoid network issues
+    log.info("Patching up42 to disable version check...")
     sys.modules["up42.version.version_control"] = MagicMock(check_package_version=MagicMock())
 
     from up42 import Order, authenticate, stac_client, utils
     from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene
     from up42.order_template import BatchOrderTemplate, OrderError, OrderReference
 
-    def _patched_get_logger(name: str, level: int = logging.INFO, verbose: bool = False):  # noqa unused `verbose`
+    def _patched_get_logger(name: str, level: int = logging.INFO, verbose: bool = False) -> logging.Logger:
+        """Patch up42.utils.get_logger to set propagate=True for all loggers,
+        so that they can be configured from the main script.
+        :param name: logger name
+        :param level: log level, default INFO
+        :param verbose: whether to set DEBUG level, default False (ignored here, use `level` instead)
+        :returns: logger with propagate=True
+        """
         logger = logging.getLogger(name)
         logger.setLevel(level)
         logger.propagate = True
         return logger
 
-    utils.get_logger = _patched_get_logger  # type: ignore[assignment] (Unknown)
+    utils.get_logger = _patched_get_logger  # type: ignore
     for logger_name in logging.Logger.manager.loggerDict:
         if logger_name.startswith("up42"):
             logger_obj = logging.getLogger(logger_name)
@@ -42,9 +55,6 @@ if "up42.version.version_control" not in sys.modules:
                 logger_obj.propagate = True
                 logger_obj.handlers.clear()
 
-from marine_litter.ml_settings import MLSettings
-
-log = logging.getLogger(__name__)
 
 DEFAULT_POLLING_TO = 20 * 60.0  # polling for order fulfillment timeout
 
@@ -71,7 +81,10 @@ class SceneSearchParams:
 
 
 def authenticate_with_up42(up42_creds_path: Path) -> bool:
-    """:returns: success."""
+    """Authenticate with UP42 using credentials from the given file path.
+    :param up42_creds_path: path to the UP42 credentials JSON file
+    :returns: success
+    """
     try:
         with up42_creds_path.open(encoding="utf-8") as f:
             creds = json.load(f)
@@ -87,6 +100,9 @@ def authenticate_with_up42(up42_creds_path: Path) -> bool:
 
 
 def fetch_collections() -> list[Collection]:
+    """Fetch available collections from UP42 ProductGlossary.
+    :returns: list of collections, empty if failed
+    """
     log.debug("Fetching available collections from UP42 ProductGlossary...")
     collections = list(
         ProductGlossary.get_collections(collection_type=CollectionType.ARCHIVE, sort_by=CollectionSorting.name)
@@ -99,6 +115,10 @@ def fetch_collections() -> list[Collection]:
 
 
 def determine_product_info(product_name: str) -> ProductInfo | None:
+    """Determine the product info (collection name, product ID, host) for the given product name.
+    :param product_name: name of the product to find (e.g. 'Level 2A')
+    :returns: product info, or None if not found
+    """
     log.info(f"Determine product info for '{product_name}'.")
     product_info: ProductInfo | None = None
     collections = fetch_collections()
@@ -119,7 +139,12 @@ def determine_product_info(product_name: str) -> ProductInfo | None:
     return product_info
 
 
-def determine_scenes(host, params: SceneSearchParams) -> list[Scene]:
+def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
+    """Determine scenes (images) matching the given search criteria.
+    :param host: UP42 provider (host) to search for scenes
+    :param params: search criteria
+    :returns: list of scenes matching the criteria, empty if none found or search failed
+    """
     one_or_two_dates = f"{params.start_date}"
     if params.start_date != params.end_date:
         one_or_two_dates += f"...{params.end_date}"
@@ -136,7 +161,7 @@ def determine_scenes(host, params: SceneSearchParams) -> list[Scene]:
     if not scenes:
         log.warning("...no scene found.")
     else:
-        scenes_by_date = defaultdict(list)
+        scenes_by_date: dict[str, list[Scene]] = defaultdict(list)
         for i, scene in enumerate(scenes, 1):
             # not sure datetime is always set, but we need unique keys
             s_date: str = scene.datetime[:10] if scene.datetime else f"? {i:8}"
@@ -154,7 +179,13 @@ def determine_scenes(host, params: SceneSearchParams) -> list[Scene]:
 
 
 def _download_single_order(download_dir: Path, order: Order) -> bool:
-    items = stac_client().search(filter={"op": "=", "args": [{"property": "order_id"}, order.id]})
+    """Download assets for a single fulfilled order.
+    :param download_dir: directory to download assets to
+    :param order: fulfilled order to download assets for
+    :returns: success
+    """
+    client: pystac_client.Client = stac_client()
+    items = client.search(filter={"op": "=", "args": [{"property": "order_id"}, order.id]})
     for item in items.items():
         collection = item.get_collection()
         if not collection:
@@ -162,7 +193,7 @@ def _download_single_order(download_dir: Path, order: Order) -> bool:
         assets: ValuesView[Asset] = collection.assets.values()
         order_asset = next((asset for asset in assets if asset.roles and "original" in asset.roles), None)
         if order_asset:  # aka `original_delivery`
-            downloaded_file_path = order_asset.file.download(output_directory=download_dir)  # noqa logs itself
+            downloaded_file_path = order_asset.file.download(output_directory=download_dir)  # type: ignore # noqa logs itself
             log.debug(f"Downloaded '{downloaded_file_path}' for order {order.id}.")
             return True
     log.error(f"Asset not found for order {order.id}.")
@@ -171,33 +202,42 @@ def _download_single_order(download_dir: Path, order: Order) -> bool:
 
 async def _process_single_order(scene_id: str, order: Order, download_dir: Path, poll_timeout_secs) -> bool:
     """Process a single order: poll until fulfilled (or failed), then download assets.
+    :param scene_id: ID of the scene associated with the order
+    :param order: order to process
+    :param download_dir: directory to download assets to
+    :param poll_timeout_secs: timeout for polling the order status
     :returns: success.
     """
     try:
         start_time = datetime.now()
         timed_out = False
-        while not order.is_fulfilled and order.status != "FAILED":
+        order_local = order
+        while not order_local.is_fulfilled and order_local.status != "FAILED":
             await asyncio.sleep(6.0)
-            order: Order = await asyncio.to_thread(Order.get, order.id)
-            order.track()
+            order_local: Order = await asyncio.to_thread(Order.get, order_local.id)
+            order_local.track()
             if (datetime.now() - start_time).total_seconds() > poll_timeout_secs:
                 timed_out = True
                 break
 
         duration = datetime.now() - start_time
-        if timed_out or order.status == "FAILED":
-            log.error(f"Order {order.id} failed after {duration}")
+        if timed_out or order_local.status == "FAILED":
+            log.error(f"Order {order_local.id} failed after {duration}")
             return False
-        log.info(f"Order {order.id} fulfilled after {duration}")
+        log.info(f"Order {order_local.id} fulfilled after {duration}")
 
-        return _download_single_order(download_dir, order)
+        return _download_single_order(download_dir, order_local)
 
     except Exception as e:
-        log.exception(f"Error processing order {order.id} for {scene_id}: {e}")
+        log.exception(f"Error processing order {order_local.id} for {scene_id}: {e}")
         return False
 
 
-async def process_orders_concurrently(order_by_scene_id: dict[str, Order], download_dir: Path):
+async def process_orders_concurrently(order_by_scene_id: dict[str, Order], download_dir: Path) -> None:
+    """Process multiple orders concurrently: poll for fulfillment and download assets.
+    :param order_by_scene_id: orders to process, keyed by their associated scene ID
+    :param download_dir: directory to download assets to
+    """
     timeout = DEFAULT_POLLING_TO
     log.info(f"Processing {len(order_by_scene_id)} order(s) (timeout: {timeout / 60:.1f} min) concurrently...")
     results = await asyncio.gather(
@@ -212,11 +252,17 @@ async def process_orders_concurrently(order_by_scene_id: dict[str, Order], downl
         elif result is False:
             failures += 1
     log.info(f"...completed {len(results)} orders, {failures} failed.")
-    assert len(order_by_scene_id) == len(results)
+    if len(order_by_scene_id) != len(results):
+        raise RuntimeError(f"Expected {len(order_by_scene_id)} results, got {len(results)}.")
 
 
-def place_orders(scenes: list[Scene], product_info, features: FeatureCollection) -> dict:
-    """:returns: placed orders by scene ID."""
+def place_orders(scenes: list[Scene], product_info, features: FeatureCollection) -> dict[str, Order]:
+    """Place orders for the given scenes.
+    :param scenes: list of scenes to place orders for
+    :param product_info: product information
+    :param features: feature collection
+    :returns: placed orders by scene ID, empty if failed
+    """
     log.info(f"Placing {len(scenes)} order(s)...")
     order_tasks = {}
     for i, scene in enumerate(scenes, 1):
@@ -237,8 +283,12 @@ def place_orders(scenes: list[Scene], product_info, features: FeatureCollection)
     return order_tasks
 
 
-def main(settings: MLSettings | None = None, dry_run=False, tell_only=False):
-    """Main workflow with UP42: authenticate, search scenes, place orders, poll for scenes (images), download."""
+def main(settings: MLSettings | None = None, dry_run=False, tell_only=False) -> None:
+    """Main workflow with UP42: authenticate, search scenes, place orders, poll for scenes (images), download.
+    :param settings: MLSettings object, if None, will load from .env
+    :param dry_run: if True, only perform checks without placing orders
+    :param tell_only: if True, only display scenes without placing orders
+    """
     if settings is None:
         settings = MLSettings(".env")
         logging.basicConfig(level=settings.log_level, format=settings.log_format)
@@ -246,9 +296,8 @@ def main(settings: MLSettings | None = None, dry_run=False, tell_only=False):
 
     log.info(10 * "-" + f" Download scenes (images) from UP42 {' (tell only)' if tell_only else ''}")
 
-    # check early for `dry_run`
-    date1 = date.today() - timedelta(days=settings.days_before)
-    date2 = date1 + timedelta(days=settings.days_num - 1)
+    start_date = date.today() - timedelta(days=settings.days_before)
+    end_date = start_date + timedelta(days=settings.days_num - 1)
     with settings.geojson_path.open(encoding="utf-8") as f:
         feature_collection = geojson.FeatureCollection(json.load(f)["features"])
         polygon = geojson.Polygon(feature_collection[0]["geometry"]["coordinates"])
@@ -261,6 +310,7 @@ def main(settings: MLSettings | None = None, dry_run=False, tell_only=False):
 
     product_info = determine_product_info(settings.product_name)
     if not product_info:
+        log.warning(f"Product '{settings.product_name}' not found, cannot search for scenes.")
         return
 
     scenes = determine_scenes(
@@ -268,12 +318,16 @@ def main(settings: MLSettings | None = None, dry_run=False, tell_only=False):
         SceneSearchParams(
             collection_name=product_info.collection_name,
             polygon=polygon,
-            start_date=date1.strftime("%Y-%m-%d"),
-            end_date=date2.strftime("%Y-%m-%d"),
+            start_date=start_date.strftime("%Y-%m-%d"),
+            end_date=end_date.strftime("%Y-%m-%d"),
             clouds_perc_max=settings.clouds_perc_max,
         ),
     )
-    if tell_only or not scenes:
+    if not scenes:
+        log.warning("No scenes found, cannot place orders.")
+        return
+
+    if tell_only:
         return
 
     order_tasks = place_orders(scenes, product_info, feature_collection)
