@@ -30,33 +30,35 @@ if "up42.version.version_control" not in sys.modules:
     log.info("Patching up42 to disable version check...")
     sys.modules["up42.version.version_control"] = MagicMock(check_package_version=MagicMock())
 
-    from up42 import Order, authenticate, stac_client, utils
-    from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene
-    from up42.order_template import BatchOrderTemplate, OrderError, OrderReference
-
-    def _patched_get_logger(name: str, level: int = logging.INFO, verbose: bool = False) -> logging.Logger:
-        """Patch up42.utils.get_logger to set propagate=True for all loggers,
-        so that they can be configured from the main script.
-        :param name: logger name
-        :param level: log level, default INFO
-        :param verbose: whether to set DEBUG level, default False (ignored here, use `level` instead)
-        :returns: logger with propagate=True
-        """
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
-        logger.propagate = True
-        return logger
-
-    utils.get_logger = _patched_get_logger  # type: ignore
-    for logger_name in logging.Logger.manager.loggerDict:
-        if logger_name.startswith("up42"):
-            logger_obj = logging.getLogger(logger_name)
-            if isinstance(logger_obj, logging.Logger):
-                logger_obj.propagate = True
-                logger_obj.handlers.clear()
+from up42 import Order, authenticate, stac_client, utils  # noqa: E402, I001
+from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene  # noqa: E402, I001
+from up42.order_template import BatchOrderTemplate, OrderError, OrderReference  # noqa: E402, I001
 
 
-DEFAULT_POLLING_TO = 20 * 60.0  # polling for order fulfillment timeout
+def _patched_get_logger(name: str, level: int = logging.INFO, verbose: bool = False) -> logging.Logger:
+    """Patch up42.utils.get_logger to set propagate=True for all loggers,
+    so that they can be configured from the main script.
+    :param name: logger name
+    :param level: log level, default INFO
+    :param verbose: whether to set DEBUG level, default False (ignored here, use `level` instead)
+    :returns: logger with propagate=True
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.propagate = True
+    return logger
+
+
+utils.get_logger = _patched_get_logger  # type: ignore
+for logger_name in logging.Logger.manager.loggerDict:
+    if logger_name.startswith("up42"):
+        logger_obj = logging.getLogger(logger_name)
+        if isinstance(logger_obj, logging.Logger):
+            logger_obj.propagate = True
+            logger_obj.handlers.clear()
+
+
+DEFAULT_POLLING_TO = 60 * 60.0  # polling for order fulfillment timeout
 
 
 @dataclass
@@ -200,7 +202,7 @@ def _download_single_order(download_dir: Path, order: Order) -> bool:
     return False
 
 
-async def _process_single_order(scene_id: str, order: Order, download_dir: Path, poll_timeout_secs) -> bool:
+async def _process_single_order(scene_id: str, order: Order, download_dir: Path, poll_timeout_secs: int) -> bool:
     """Process a single order: poll until fulfilled (or failed), then download assets.
     :param scene_id: ID of the scene associated with the order
     :param order: order to process
@@ -208,16 +210,28 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
     :param poll_timeout_secs: timeout for polling the order status
     :returns: success.
     """
+    order_local = order
+    start_time = datetime.now()
+    timed_out = False
+    log_counter = 0
+    log_every_n_seconds = 120
+    sleep_seconds = 6.0
     try:
-        start_time = datetime.now()
-        timed_out = False
-        order_local = order
         while not order_local.is_fulfilled and order_local.status != "FAILED":
-            await asyncio.sleep(6.0)
+            await asyncio.sleep(sleep_seconds)
             order_local: Order = await asyncio.to_thread(Order.get, order_local.id)
             order_local.track()
+            log_counter += sleep_seconds
+
+            if log_counter >= log_every_n_seconds:
+                log.info(
+                    f"Polling for order for {(datetime.now() - start_time).total_seconds():.0f} seconds... "
+                    f"(scene {scene_id}, status: {order_local.status})"
+                )
+                log_counter = 0
             if (datetime.now() - start_time).total_seconds() > poll_timeout_secs:
                 timed_out = True
+                log.error(f"Polling for order {order_local.id} timed out after {poll_timeout_secs} seconds.")
                 break
 
         duration = datetime.now() - start_time
@@ -238,7 +252,7 @@ async def process_orders_concurrently(order_by_scene_id: dict[str, Order], downl
     :param order_by_scene_id: orders to process, keyed by their associated scene ID
     :param download_dir: directory to download assets to
     """
-    timeout = DEFAULT_POLLING_TO
+    timeout = int(DEFAULT_POLLING_TO)
     log.info(f"Processing {len(order_by_scene_id)} order(s) (timeout: {timeout / 60:.1f} min) concurrently...")
     results = await asyncio.gather(
         *[_process_single_order(sc_id, order, download_dir, timeout) for sc_id, order in order_by_scene_id.items()],
@@ -256,7 +270,7 @@ async def process_orders_concurrently(order_by_scene_id: dict[str, Order], downl
         raise RuntimeError(f"Expected {len(order_by_scene_id)} results, got {len(results)}.")
 
 
-def place_orders(scenes: list[Scene], product_info, features: FeatureCollection) -> dict[str, Order]:
+def place_orders(scenes: list[Scene], product_info: ProductInfo, features: FeatureCollection) -> dict[str, Order]:
     """Place orders for the given scenes.
     :param scenes: list of scenes to place orders for
     :param product_info: product information
@@ -283,7 +297,7 @@ def place_orders(scenes: list[Scene], product_info, features: FeatureCollection)
     return order_tasks
 
 
-def main(settings: MLSettings | None = None, dry_run=False, tell_only=False) -> None:
+def main(settings: MLSettings | None = None, dry_run: bool = False, tell_only: bool = False) -> None:
     """Main workflow with UP42: authenticate, search scenes, place orders, poll for scenes (images), download.
     :param settings: MLSettings object, if None, will load from .env
     :param dry_run: if True, only perform checks without placing orders
