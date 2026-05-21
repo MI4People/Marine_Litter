@@ -78,13 +78,13 @@ class MLSettings(BaseSettings):
             raise FileNotFoundError(str(env_file))
         super().__init__(_env_prefix="ML_", _env_file=str(env_file), _env_file_encoding="utf-8", **kwargs)
         # for robustness: remove possible quotes/spaces for all string fields
-        for field_name, field_info in self.model_fields.items():
+        for field_name, field_info in MLSettings.model_fields.items():
             if field_info.annotation is str:
                 setattr(self, field_name, getattr(self, field_name).strip("\"' \t"))
 
     def as_tuples(self):
         return [
-            (k, v, type(self).model_fields[k].default, type(self).model_fields[k].description)
+            (k, v, MLSettings.model_fields[k].default, MLSettings.model_fields[k].description)
             for k, v in self.model_dump().items()
         ]
 

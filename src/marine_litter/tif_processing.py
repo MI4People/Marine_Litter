@@ -1,6 +1,7 @@
 import argparse
 import logging
 from pathlib import Path
+from time import perf_counter
 
 import torch
 from marinedebrisdetector.predictor import ScenePredictor
@@ -37,7 +38,10 @@ def predict_litter(tif_file: Path, cpu_or_cuda: str, checkpoint_path: Path | Non
 
         temp_predicted = tif_file.parent / f"{tif_file.stem}_temp_predicted.tif"
         scene_predictor = ScenePredictor(device=cpu_or_cuda)
+        t_start = perf_counter()
         scene_predictor.predict(model, str(tif_file), str(temp_predicted))
+        t_end = perf_counter()
+        log.info(f"  Prediction time: {t_end - t_start:.2f} seconds")
 
         result_cog_tif = tif_file.parent / f"{tif_file.stem}_prediction.tif"
         gdal.Translate(

@@ -27,8 +27,8 @@ for collection in archive_collections:
     print(f"\n{collection.title}: {collection.name}")
     print(f"{collection.description}")
     print("Metadata:")
-    print(f"  Product type:       {collection.metadata.product_type}")
-    print(f"  Resolution class:   {collection.metadata.resolution_class}")
-    print(f"  Min resolution:     {collection.metadata.resolution_value.minimum} m")
-    if collection.metadata.resolution_value.maximum:
-        print(f"  Max resolution {collection.metadata.resolution_value.maximum} m")
+    print(f"  Product type:       {collection.metadata.product_type}")  # type: ignore
+    print(f"  Resolution class:   {collection.metadata.resolution_class}")  # type: ignore
+    print(f"  Min resolution:     {collection.metadata.resolution_value.minimum} m")  # type: ignore
+    if collection.metadata.resolution_value.maximum:  # type: ignore
+        print(f"  Max resolution {collection.metadata.resolution_value.maximum} m")  # type: ignore
