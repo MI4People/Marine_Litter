@@ -21,7 +21,9 @@ log = logging.getLogger(__name__)
 
 
 def show_progress(futures: list[Future[Path | None]]) -> None:
-    """Track and log progress of parallel execution."""
+    """Track and log progress of parallel execution.
+    :param futures: list of Future objects representing the tasks being executed
+    """
     total = len(futures)
     while True:
         done_count = sum(f.done() for f in futures)
@@ -50,16 +52,23 @@ def move_predictions_to_output_path(input_path: Path, output_path: Path) -> list
     return moved_files
 
 
-def cleanup_input_directory(input_path: Path) -> None:
-    """Remove the litter prediction input TIFFs.
-    :param input_path: directory containing the TIFFs to be deleted
+def cleanup_zip_files(input_path: Path) -> None:
+    """Remove the zip files from the input directory.
+    :param input_path: directory containing the zip files to be deleted
     """
-    for tif_file in input_path.glob("*.tif"):
-        tif_file.unlink()
-        log.debug(f"Deleted '{tif_file.name}'")
+    for zip_file in input_path.glob("*.zip"):
+        try:
+            zip_file.unlink()
+            log.info(f"Deleted '{zip_file.name}'")
+        except Exception as e:
+            log.error(f"Failed to delete '{zip_file.name}': {e}")
 
 
 def update_dates_json(dates_path: Path, predicted_files: list[Path]) -> None:
+    """Update the dates JSON file with the predicted files.
+    :param dates_path: path to the JSON file containing the dates and filenames
+    :param predicted_files: list of predicted files to be added to the JSON file
+    """
     json_data: dict[str, list[str]] = {}
     if dates_path.exists():
         with dates_path.open("r", encoding="utf-8") as json_file:
@@ -84,25 +93,36 @@ def update_dates_json(dates_path: Path, predicted_files: list[Path]) -> None:
     log.info(f"Updated {dates_path} with {len(predicted_files)} predicted file(s)")
 
 
-def _extract_tiff_files(input_path: Path) -> None:
-    """Extract all .tif files from .zip archives in the input directory."""
+def _extract_tiff_files(input_path: Path) -> list[Path]:
+    """Extract all .tif files from .zip archives in the input directory.
+    :param input_path: directory containing the zip files to be processed
+    """
     zip_files = sorted(input_path.glob("*.zip"))
     if not zip_files:
         log.warning(f"No UP42 zip files found in '{input_path}'!")
-        return
+        return []
 
     for i, zip_file in enumerate(zip_files):
         log.info(f"Processing {i + 1:2}/{len(zip_files)} '{zip_file.name}'")
         process_zip(zip_file)
         log.info(f"-> Extracted TIFFs from '{zip_file.name}'")
 
+    tif_files = sorted(input_path.glob("*.tif"))
+    log.info(f"Found {len(tif_files)} TIFF files in '{input_path}' after extraction")
+    return tif_files
+
 
 def main(
     settings: MLSettings | None = None,
     delete_zip: bool = True,
     dry_run: bool = False,
-    delete_input: bool = True,
 ) -> None:
+    """Run the marine litter prediction pipeline on TIFF files extracted from UP42 zip archives.
+    :param settings: MLSettings object containing configuration for the prediction pipeline. If None, settings will be
+    loaded from .env file.
+    :param delete_zip: whether to delete the zip files after processing
+    :param dry_run: if True, only print settings and do some checks without running the prediction
+    """
     if settings is None:
         settings = MLSettings(".env")
         logging.basicConfig(level=settings.log_level, format=settings.log_format)
@@ -114,9 +134,8 @@ def main(
         return
 
     input_path = settings.input_path
-    _extract_tiff_files(input_path)
 
-    tif_files = sorted(input_path.glob("*.tif"))
+    tif_files = _extract_tiff_files(input_path)
     if not tif_files:
         log.warning(f"No tif files found in '{input_path}'!")
         return
@@ -149,16 +168,8 @@ def main(
 
     moved_files: list[Path] = move_predictions_to_output_path(input_path, output_path)
 
-    if delete_input:
-        cleanup_input_directory(input_path)
-
     if delete_zip:
-        for zip_file in input_path.glob("*.zip"):
-            try:
-                zip_file.unlink()
-                log.info(f"Deleted '{zip_file.name}'")
-            except Exception as e:
-                log.error(f"Failed to delete '{zip_file.name}': {e}")
+        cleanup_zip_files(input_path)
 
     update_dates_json(settings.dates_path, moved_files)
 
@@ -172,13 +183,6 @@ if __name__ == "__main__":
     ap.add_argument(
         "--no-delete-zip", action="store_false", dest="delete_zip", help="do not delete zip files after processing"
     )
-    ap.add_argument("--delete-input", action="store_true", help="delete input TIFF files after processing")
-    ap.add_argument(
-        "--no-delete-input",
-        action="store_false",
-        dest="delete_input",
-        help="do not delete input TIFF files after processing",
-    )
     args: Namespace = ap.parse_args()
 
-    main(dry_run=args.dry_run, delete_zip=args.delete_zip, delete_input=args.delete_input)
+    main(dry_run=args.dry_run, delete_zip=args.delete_zip)
