@@ -24,6 +24,8 @@ version = "0.1.2"
 dependencies = [
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
+    # Linux/macOS: gdal is provided by the system, not uv/pip. Call `sudo apt install -y python3-gdal`,
+    # then create venv with `uv venv --python 3.12 --system-site-packages` (Python version must match system gdal).
     "google-cloud-storage",
     "marinedebrisdetector",                                                                                                                                                        # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
     "pydantic-settings",
