@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
@@ -66,33 +67,29 @@ class MLSettings(BaseSettings):
         mode="before",
     )
     @classmethod
-    def expand_user_path(cls, v):
-        """Expand ~ to user home directory for cross-platform compatibility (Windows/Linux)."""
-        if isinstance(v, str):
-            return Path(v).expanduser()
-        else:
+    def expand_user_path(cls, v: str | Path) -> Path:
         """Expand ~ to user home directory for cross-platform compatibility (Windows/Linux).
         Also strips shell quotes that pydantic-settings does not remove before validation."""
         if isinstance(v, str):
             return Path(v.strip("\"' \t")).expanduser()
-        return Path(v).expanduser()
+        return v.expanduser()
 
-    def __init__(self, env_file: str | Path | None = None, **kwargs):
+    def __init__(self, env_file: str | Path | None = None, **kwargs: dict[str, Any]) -> None:
         if env_file and not Path(env_file).is_file():
             raise FileNotFoundError(str(env_file))
-        super().__init__(_env_prefix="ML_", _env_file=str(env_file), _env_file_encoding="utf-8", **kwargs)
+        super().__init__(_env_prefix="ML_", _env_file=str(env_file), _env_file_encoding="utf-8", **kwargs)  # type:ignore
         # for robustness: remove possible quotes/spaces for all string fields
         for field_name, field_info in MLSettings.model_fields.items():
             if field_info.annotation is str:
                 setattr(self, field_name, getattr(self, field_name).strip("\"' \t"))
 
-    def as_tuples(self):
+    def as_tuples(self) -> list[tuple[str, Any, Any, str | None]]:
         return [
             (k, v, MLSettings.model_fields[k].default, MLSettings.model_fields[k].description)
             for k, v in self.model_dump().items()
         ]
 
-    def as_table(self, default=False, description=False) -> str:
+    def as_table(self, default: bool = False, description: bool = False) -> str:
         """Return settings as vertically aligned table, skipping latter 2 column when set to `False`."""
         rows = [("Name", "Value", "Default", "Description"), *self.as_tuples()]
         cols = [0, 1] + ([2] if default else []) + ([3] if description else [])
