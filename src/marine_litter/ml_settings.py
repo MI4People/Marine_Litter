@@ -71,7 +71,11 @@ class MLSettings(BaseSettings):
         if isinstance(v, str):
             return Path(v).expanduser()
         else:
-            return v.expanduser()
+        """Expand ~ to user home directory for cross-platform compatibility (Windows/Linux).
+        Also strips shell quotes that pydantic-settings does not remove before validation."""
+        if isinstance(v, str):
+            return Path(v.strip("\"' \t")).expanduser()
+        return Path(v).expanduser()
 
     def __init__(self, env_file: str | Path | None = None, **kwargs):
         if env_file and not Path(env_file).is_file():
