@@ -9,7 +9,9 @@ from marine_litter.tif_processing import get_tiff_layout, predict_litter
 # @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 @pytest.mark.parametrize("checkpoint_fixture", ["checkpoint_path", None])
 @pytest.mark.parametrize("cuda_or_cpu", ["cuda", "cpu"])
-def test_run_prediction_on_file(combined_tif_from_up42_zip, checkpoint_fixture, request, cuda_or_cpu: str):
+def test_run_prediction_on_file(
+    combined_tif_from_up42_zip: Path, checkpoint_fixture: str, request: pytest.FixtureRequest, cuda_or_cpu: str
+) -> None:
     info: dict = get_tiff_layout(combined_tif_from_up42_zip)
     assert info["block_size"] == (1176, 1)
     assert info["raster_size"] == (1176, 1176)
@@ -37,7 +39,7 @@ def test_run_prediction_on_file(combined_tif_from_up42_zip, checkpoint_fixture, 
     assert info["is_tiled"] is True
 
 
-def test_run_prediction_logs(caplog):
+def test_run_prediction_logs(caplog: pytest.LogCaptureFixture) -> None:
     result = predict_litter(Path("nonexistent.tif"), "cuda", Path("nonexistent.ckpt"))
     assert result is None
     assert "does not exist -> use default weights" in caplog.text

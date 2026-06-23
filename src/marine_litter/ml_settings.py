@@ -74,7 +74,7 @@ class MLSettings(BaseSettings):
             return Path(v.strip("\"' \t")).expanduser()
         return v.expanduser()
 
-    def __init__(self, env_file: str | Path | None = None, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, env_file: str | Path | None = None, **kwargs: str | Path | int) -> None:
         if env_file and not Path(env_file).is_file():
             raise FileNotFoundError(str(env_file))
         super().__init__(_env_prefix="ML_", _env_file=str(env_file), _env_file_encoding="utf-8", **kwargs)  # type:ignore

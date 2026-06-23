@@ -1,5 +1,6 @@
 import shutil
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -7,7 +8,7 @@ from marine_litter.tif_processing import get_tiff_layout
 from marine_litter.zip_processing import process_zip
 
 
-def test_process_zip(tmp_path, an_up42_zip):
+def test_process_zip(tmp_path: Path, an_up42_zip: Path) -> None:
     test_zip = tmp_path / "test.zip"
     shutil.copy(an_up42_zip, test_zip)
 
@@ -28,7 +29,7 @@ def test_process_zip(tmp_path, an_up42_zip):
     assert info["is_tiled"] is False
 
 
-def test_process_zip_error_no_tif_files(tmp_path):
+def test_process_zip_error_no_tif_files(tmp_path: Path) -> None:
     test_zip = tmp_path / "test.zip"
     with zipfile.ZipFile(test_zip, "w") as zf:
         zf.writestr("metadata.xml", "<root></root>")
@@ -38,7 +39,7 @@ def test_process_zip_error_no_tif_files(tmp_path):
         process_zip(test_zip)
 
 
-def test_process_zip_error_no_metadata(tmp_path):
+def test_process_zip_error_no_metadata(tmp_path: Path) -> None:
     test_zip = tmp_path / "test.zip"
     with zipfile.ZipFile(test_zip, "w") as zf:
         zf.writestr("B01.tif", b"\x00" * 100)
@@ -47,7 +48,7 @@ def test_process_zip_error_no_metadata(tmp_path):
         process_zip(test_zip)
 
 
-def test_process_zip_error_tile_id(tmp_path):
+def test_process_zip_error_tile_id(tmp_path: Path) -> None:
     test_zip = tmp_path / "test.zip"
     with zipfile.ZipFile(test_zip, "w") as zf:
         zf.writestr("B01.tif", b"\x00" * 100)

@@ -10,7 +10,7 @@ from marine_litter.ml_settings import MLSettings
 log = logging.getLogger(__name__)
 
 
-def test_settings_defaults():
+def test_settings_defaults() -> None:
     # Ensure all fields are tested (vs. `MLSettings` defaults)
     tested_fields = {
         "log_level": "WARNING",
@@ -47,7 +47,7 @@ def test_settings_defaults():
         assert actual_value == expected_value, f"Field '{field_name}': expected {expected_value}, got {actual_value}"
 
 
-def test_example_env_completeness(env_file):
+def test_example_env_completeness(env_file: Path) -> None:
     env_fields = []
     with open(env_file, "r", encoding="utf-8") as f:
         env_fields.extend(m[1].lower() for line in f.readlines() if (m := re.match("^ML_([A-Z0-9_]+) *=", line)))
@@ -56,30 +56,30 @@ def test_example_env_completeness(env_file):
     assert not missing_fields, f"Missing in '.example.env' fields: {missing_fields}"
 
 
-def test_missing_env_file_raises_file_not_found_error():
+def test_missing_env_file_raises_file_not_found_error() -> None:
     with pytest.raises(FileNotFoundError):
         MLSettings(env_file="non_existent.env")
 
 
-def test_single_args():
+def test_single_args() -> None:
     for level_str in ["DEBUG", "INFO"]:
         settings = MLSettings(log_level=level_str)
         assert level_str == settings.log_level
 
 
-def test_unknown_arguments_are_rejected():
+def test_unknown_arguments_are_rejected() -> None:
     with pytest.raises(ValidationError) as e:
         MLSettings(unknown_field="some_value")
     assert "unknown_field" in str(e.value)
 
 
-def test_as_table(caplog):
+def test_as_table(caplog: pytest.LogCaptureFixture) -> None:
     table_output = MLSettings().as_table(description=True)
     assert re.search(r"Name +\| Value +\| Description", table_output)
     assert "    | Default" not in table_output
 
 
-def test_settings_are_overridden_from_env_variables(env_file):
+def test_settings_are_overridden_from_env_variables(env_file: Path) -> None:
     settings = MLSettings(env_file)
 
     # Logging
@@ -108,7 +108,7 @@ def test_settings_are_overridden_from_env_variables(env_file):
     assert settings.predict_workers == 4
 
 
-def test_settings_expands_os_env(monkeypatch):
+def test_settings_expands_os_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ML_INPUT_PATH", "~/test/input")
     settings = MLSettings()
     assert settings.input_path == Path("~/test/input").expanduser()

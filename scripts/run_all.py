@@ -14,10 +14,10 @@ from marine_litter.ml_settings import MLSettings
 log = logging.getLogger(__name__)
 
 
-def main(log_level="WARNING", dry_run=False):
+def main(log_level: str = "WARNING", dry_run: bool = False) -> None:
     env_file = ".env" if Path(".env").is_file() else None
     settings = MLSettings(env_file)
-    settings.log_level = log_level
+    settings.log_level = log_level.upper()
 
     logging.basicConfig(level=settings.log_level, format=settings.log_format)
     log.info(f"Settings:\n{settings.as_table(description=dry_run)}")

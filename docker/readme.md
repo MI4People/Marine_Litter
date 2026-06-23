@@ -5,7 +5,7 @@ _This file holds the Docker related information—in addition to the project roo
 ### Requirements
 - Docker
 - Python version as in root 'pyproject.toml'
-- UP42 account and credentials like `{username:"user", password:"pwd"}` in 'secrets/up42_credentials.json' 
+- UP42 account and credentials like `{username:"user", password:"pwd"}` in 'secrets/up42_credentials.json'
 - Google credentials in 'secrets/google_credentials.json'
 - a PyTorch model checkpoint in `~/.cache/torch/hub/checkpoints/`
 

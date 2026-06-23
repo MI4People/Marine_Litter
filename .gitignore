@@ -28,3 +28,4 @@ temp/
 .up42
 secrets.env
 *.ckpt
+marida/
