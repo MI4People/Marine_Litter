@@ -33,7 +33,7 @@ pytest tests/
 Note `UV_NO_DEV=true` in Dockerfile avoids installing dev dependencies despite `uv.lock` is fix.
 Then you can build the image (from project root to take .dockerignore into account) like:
 ```bash
-docker build -f docker/Dockerfile -t marine_litter .
+DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile -t marine_litter .
 ```
 
 Ensure your local, git-ignored `.env` and `secrets/*.json` files exist before running the image.
