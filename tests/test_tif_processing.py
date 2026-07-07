@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from marine_litter.tif_processing import get_tiff_layout, predict_litter
+from marine_litter.tif_processing import get_tiff_layout, load_model, predict_litter
 
 
 # @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
@@ -27,7 +27,8 @@ def test_run_prediction_on_file(
     if cuda_or_cpu == "cuda" and (torch.cuda.device_count() == 0 or not torch.cuda.is_available()):
         pytest.skip("No CUDA devices found, skipping CUDA test")
 
-    result_tif = predict_litter(combined_tif_from_up42_zip, cuda_or_cpu, checkpoint_path)
+    model = load_model(cuda_or_cpu, checkpoint_path)
+    result_tif = predict_litter(combined_tif_from_up42_zip, model, cuda_or_cpu)
 
     assert result_tif
     info: dict = get_tiff_layout(result_tif)
@@ -39,8 +40,10 @@ def test_run_prediction_on_file(
     assert info["is_tiled"] is True
 
 
-def test_run_prediction_logs(caplog: pytest.LogCaptureFixture) -> None:
-    result = predict_litter(Path("nonexistent.tif"), "cuda", Path("nonexistent.ckpt"))
-    assert result is None
+def test_run_prediction_logs(caplog):
+    model = load_model("cuda", Path("nonexistent.ckpt"))
     assert "does not exist -> use default weights" in caplog.text
+
+    result = predict_litter(Path("nonexistent.tif"), model, "cuda")
+    assert result is None
     assert "Error processing" in caplog.text

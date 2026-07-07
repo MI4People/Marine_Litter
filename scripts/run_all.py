@@ -2,6 +2,7 @@ import logging
 import os
 from argparse import ArgumentParser, HelpFormatter, Namespace
 from pathlib import Path
+from typing import Literal
 
 import download_from_up42
 import predict_litter
@@ -14,7 +15,9 @@ from marine_litter.ml_settings import MLSettings
 log = logging.getLogger(__name__)
 
 
-def main(log_level: str = "WARNING", dry_run: bool = False) -> None:
+def main(
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING", dry_run: bool = False
+) -> None:
     env_file = ".env" if Path(".env").is_file() else None
     settings = MLSettings(env_file)
     settings.log_level = log_level.upper()

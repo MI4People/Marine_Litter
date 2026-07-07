@@ -14,7 +14,7 @@ import torch
 from torch.cuda.random import device_count
 
 from marine_litter.ml_settings import MLSettings
-from marine_litter.tif_processing import predict_litter
+from marine_litter.tif_processing import load_model, predict_litter
 from marine_litter.zip_processing import process_zip
 
 log = logging.getLogger(__name__)
@@ -152,15 +152,11 @@ def main(
         log.warning("No CUDA devices found, falling back to CPU")
         device = "cpu"
 
-    checkpoint_path = None
-    if settings.checkpoint_file:
-        checkpoint_path = settings.checkpoints.expanduser() / settings.checkpoint_file
-        if not checkpoint_path.exists():
-            log.warning(f"Custom checkpoint not found: {checkpoint_path}, using hub defaults")
-            checkpoint_path = None
+    checkpoint_path = settings.checkpoints.expanduser() / settings.checkpoint_file if settings.checkpoint_file else None
+    model = load_model(device, checkpoint_path)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=settings.predict_workers) as executor:
-        futures = [executor.submit(predict_litter, tif_file, device, checkpoint_path) for tif_file in tif_files]
+        futures = [executor.submit(predict_litter, tif_file, model, device) for tif_file in tif_files]
         show_progress(futures)
 
     predicted_files = [f.result() for f in futures if f.result() is not None]

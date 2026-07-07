@@ -108,6 +108,8 @@ select = ["B", "E", "F", "I", "PERF", "PL", "ANN"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = [
     "PLR2004", # magic-value-comparison
+    "ANN001",  # missing-type-annotation
+    "ANN201",  # missing-type-annotation
 ]
 
 [tool.ruff.lint.pylint]
