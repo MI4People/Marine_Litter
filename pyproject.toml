@@ -6,9 +6,7 @@ Issues = "https://github.com/MI4People/Marine_Litter/issues"
 Repository = "https://github.com/MI4People/Marine_Litter"
 
 [project]
-authors = [
-    { name = "Denis Dalić", email = "denis.dalic@mi4people.org" }
-]
+authors = [{ name = "Denis Dalić", email = "denis.dalic@mi4people.org" }]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "License :: OSI Approved :: MIT License",
@@ -26,8 +24,10 @@ version = "0.1.2"
 dependencies = [
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
+    # Linux/macOS: gdal is provided by the system, not uv/pip. Call `sudo apt install -y python3-gdal`,
+    # then create venv with `uv venv --python 3.12 --system-site-packages` (Python version must match system gdal).
     "google-cloud-storage",
-    "marinedebrisdetector",  # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
+    "marinedebrisdetector",      # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
     "pydantic-settings",
     "torch==2.9.1+cu130",
     "torchvision==0.24.1+cu130",
@@ -44,11 +44,12 @@ dev = [
     "mkdocs",
     "mkdocs-material",
     "mkdocs-mermaid2-plugin",
-    "pip-tools",  # for readthedocs, see 'docs/requirements.in'
+    "pip-tools",              # for readthedocs, see 'docs/requirements.in'
+    "pre-commit",
     "pytest-cov",
     "pytest-sugar",
     "ty",
-    "uv_build",
+    "uv_build<1.0",
 ]
 
 [[tool.uv.index]]
@@ -96,29 +97,28 @@ quote-style = "double"
 # PL    https://docs.astral.sh/ruff/rules/#flake8-pyi-p         # pylint
 # Q     https://docs.astral.sh/ruff/rules/#flake8-quotes-q
 ignore = [
-    "E731",  # lambda-assignment
-    "F402",  # shadows name from outer scope
+    "E731", # lambda-assignment
+    "F402", # shadows name from outer scope
 ]
-select = [
-    "B",
-    "E",
-    "F",
-    "I",
-    "PERF",
-    "PL",
-]
+select = ["B", "E", "F", "I", "PERF", "PL", "ANN"]
 
 [tool.ruff.lint.isort]
 # use defaults https://docs.astral.sh/ruff/settings/#lintisort
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = [
-    "PLR2004",  # magic-value-comparison
+    "PLR2004", # magic-value-comparison
+    "ANN001",  # missing-type-annotation
+    "ANN201",  # missing-type-annotation
 ]
 
 [tool.ruff.lint.pylint]
 # use defaults https://docs.astral.sh/ruff/settings/#lintpysort
 
+[tool.ty.rules]
+all = "error"
+
+
 [tool.pytest.ini_options]
-addopts = "--tb=short"
+addopts = "--tb=short --cov=src --cov-report=term-missing"
 pythonpath = ["src"]

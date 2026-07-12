@@ -27,7 +27,7 @@ def main(  # noqa: PLR0913, PLR0917
     output_tif: str = OUTPUT_TIF,
     reproj_copts: list[str] | None = None,
     final_copts: list[str] | None = None,
-):
+) -> None:
     if reproj_copts is None:
         reproj_copts = REPROJ_COPTS
     if final_copts is None:

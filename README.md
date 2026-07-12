@@ -19,6 +19,9 @@ Install these like
 - Linux: `sudo apt install pipx && pipx install uv ruff`
 
 ### Quick Start
+Prerequisites: You need `c++`and `gdal-devel` + `gdal-config` with version number matching the gdal version in the `pyproject.toml` installed on your system.
+Simplest approach is to use system gdal (e.g., `sudo apt install -y python3-gdal` on Linux). See [https://gdal.org/en/stable/download.html] for more details on installing gdal.
+
 For development, Python should be used in a [venv](https://docs.python.org/3/library/venv.html).
 This is done by `uv` automatically into project root `.venv/`, when not called with `--active`.
 ```bash

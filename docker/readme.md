@@ -5,7 +5,7 @@ _This file holds the Docker related information—in addition to the project roo
 ### Requirements
 - Docker
 - Python version as in root 'pyproject.toml'
-- UP42 account and credentials like `{username:"user", password:"pwd"}` in 'secrets/up42_credentials.json' 
+- UP42 account and credentials like `{username:"user", password:"pwd"}` in 'secrets/up42_credentials.json'
 - Google credentials in 'secrets/google_credentials.json'
 - a PyTorch model checkpoint in `~/.cache/torch/hub/checkpoints/`
 
@@ -28,12 +28,12 @@ See './.example.env' for reference of the whole list
 Ensure the project root 'uv.lock' is tested before `docker build`:
 ```bash
 uv sync --active --upgrade
-pytest tests/
+uv run pytest tests/
 ```
 Note `UV_NO_DEV=true` in Dockerfile avoids installing dev dependencies despite `uv.lock` is fix.
 Then you can build the image (from project root to take .dockerignore into account) like:
 ```bash
-docker build -f docker/Dockerfile -t marine_litter .
+DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile -t marine_litter .
 ```
 
 Ensure your local, git-ignored `.env` and `secrets/*.json` files exist before running the image.

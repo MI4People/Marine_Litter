@@ -17,7 +17,8 @@ RUN apt-get update \
 # configure uv to avoid some CLI parameters (https://docs.astral.sh/uv/reference/cli/).
 ENV PATH="/root/.local/bin:/marine_litter/.venv/bin:${PATH}" \
     UV_LINK_MODE=copy \
-    UV_NO_DEV=1
+    UV_NO_DEV=1 \
+    UV_COMPILE_BYTECODE=1
 
 WORKDIR /marine_litter
 
