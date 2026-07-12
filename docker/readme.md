@@ -28,7 +28,7 @@ See './.example.env' for reference of the whole list
 Ensure the project root 'uv.lock' is tested before `docker build`:
 ```bash
 uv sync --active --upgrade
-pytest tests/
+uv run pytest tests/
 ```
 Note `UV_NO_DEV=true` in Dockerfile avoids installing dev dependencies despite `uv.lock` is fix.
 Then you can build the image (from project root to take .dockerignore into account) like:

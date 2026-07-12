@@ -90,6 +90,7 @@ def update_dates_json(dates_path: Path, predicted_files: list[Path]) -> None:
 
     with dates_path.open("w", encoding="utf-8") as json_file:
         json.dump(new_dates, json_file, indent=4)
+        json_file.write("\n")
     log.info(f"Updated {dates_path} with {len(predicted_files)} predicted file(s)")
 
 

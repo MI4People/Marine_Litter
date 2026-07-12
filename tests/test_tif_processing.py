@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 import torch
@@ -12,7 +13,7 @@ from marine_litter.tif_processing import get_tiff_layout, load_model, predict_li
 def test_run_prediction_on_file(
     combined_tif_from_up42_zip: Path, checkpoint_fixture: str, request: pytest.FixtureRequest, cuda_or_cpu: str
 ) -> None:
-    info: dict = get_tiff_layout(combined_tif_from_up42_zip)
+    info: dict[str, Any] = get_tiff_layout(combined_tif_from_up42_zip)
     assert info["block_size"] == (1176, 1)
     assert info["raster_size"] == (1176, 1176)
     assert info["image_structure"] == {"INTERLEAVE": "PIXEL"}
@@ -31,7 +32,7 @@ def test_run_prediction_on_file(
     result_tif = predict_litter(combined_tif_from_up42_zip, model, cuda_or_cpu)
 
     assert result_tif
-    info: dict = get_tiff_layout(result_tif)
+    info = get_tiff_layout(result_tif)
     assert info["block_size"] == (256, 256)
     assert info["raster_size"] == (1176, 1176)
     assert info["image_structure"]["LAYOUT"] == "COG"

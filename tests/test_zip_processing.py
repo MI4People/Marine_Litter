@@ -1,6 +1,7 @@
 import shutil
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -20,7 +21,7 @@ def test_process_zip(tmp_path: Path, an_up42_zip: Path) -> None:
     assert not (tmp_path / test_zip.stem).exists(), "Extract dir should be cleaned up"
     assert not any(f.suffix == ".vrt" for f in tmp_path.glob("*")), "VRT should be cleaned up"
 
-    info: dict = get_tiff_layout(combined_tif)
+    info: dict[str, Any] = get_tiff_layout(combined_tif)
     assert info["block_size"] == (1176, 1)
     assert info["raster_size"] == (1176, 1176)
     assert info["image_structure"] == {"INTERLEAVE": "PIXEL"}

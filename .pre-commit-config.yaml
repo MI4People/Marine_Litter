@@ -27,7 +27,5 @@ repos:
         name: ty-check
         language: python
         types: [python]
-        entry: ty check
+        entry: uv run ty check
         pass_filenames: true
-        args: [--python=.venv/]
-        additional_dependencies: [ty]

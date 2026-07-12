@@ -19,8 +19,7 @@ def main(
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING", dry_run: bool = False
 ) -> None:
     env_file = ".env" if Path(".env").is_file() else None
-    settings = MLSettings(env_file)
-    settings.log_level = log_level.upper()
+    settings = MLSettings(env_file, log_level=log_level.upper())
 
     logging.basicConfig(level=settings.log_level, format=settings.log_format)
     log.info(f"Settings:\n{settings.as_table(description=dry_run)}")

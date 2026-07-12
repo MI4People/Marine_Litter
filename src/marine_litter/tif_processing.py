@@ -2,6 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 import torch
 from marinedebrisdetector.predictor import ScenePredictor
@@ -72,7 +73,7 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
         temp_predicted.unlink(missing_ok=True)  # remove temporary file, even on failure
 
 
-def get_tiff_layout(tiff: Path) -> dict:
+def get_tiff_layout(tiff: Path) -> dict[str, Any]:
     ds: Dataset = gdal.Open(str(tiff))
     if ds is None:
         raise FileNotFoundError(f"gdal could not open '{tiff}' as a raster dataset")

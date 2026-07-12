@@ -30,33 +30,9 @@ if "up42.version.version_control" not in sys.modules:
     log.info("Patching up42 to disable version check...")
     sys.modules["up42.version.version_control"] = MagicMock(check_package_version=MagicMock())
 
-from up42 import Order, authenticate, stac_client, utils  # noqa: E402, I001
+from up42 import Order, authenticate, stac_client  # noqa: E402, I001
 from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene  # noqa: E402, I001
 from up42.order_template import BatchOrderTemplate, OrderError, OrderReference  # noqa: E402, I001
-
-
-def _patched_get_logger(name: str, level: int = logging.INFO, verbose: bool = False) -> logging.Logger:
-    """Patch up42.utils.get_logger to set propagate=True for all loggers,
-    so that they can be configured from the main script.
-    :param name: logger name
-    :param level: log level, default INFO
-    :param verbose: whether to set DEBUG level, default False (ignored here, use `level` instead)
-    :returns: logger with propagate=True
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.propagate = True
-    return logger
-
-
-utils.get_logger = _patched_get_logger  # type: ignore
-for logger_name in logging.Logger.manager.loggerDict:
-    if logger_name.startswith("up42"):
-        logger_obj = logging.getLogger(logger_name)
-        if isinstance(logger_obj, logging.Logger):
-            logger_obj.propagate = True
-            logger_obj.handlers.clear()
-
 
 DEFAULT_POLLING_TO = 60 * 60.0  # polling for order fulfillment timeout
 
@@ -195,7 +171,8 @@ def _download_single_order(download_dir: Path, order: Order) -> bool:
         assets: ValuesView[Asset] = collection.assets.values()
         order_asset = next((asset for asset in assets if asset.roles and "original" in asset.roles), None)
         if order_asset:  # aka `original_delivery`
-            downloaded_file_path = order_asset.file.download(output_directory=download_dir)  # type: ignore # noqa logs itself
+            # `Asset.file` is added dynamically by up42.stac.extend() at import time, so ty can't see it.
+            downloaded_file_path = order_asset.file.download(output_directory=download_dir)  # ty: ignore[unresolved-attribute]
             log.debug(f"Downloaded '{downloaded_file_path}' for order {order.id}.")
             return True
     log.error(f"Asset not found for order {order.id}.")
