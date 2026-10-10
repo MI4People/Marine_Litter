@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 from pathlib import Path
@@ -9,7 +10,18 @@ from marine_litter.ml_settings import MLSettings
 log = logging.getLogger(__name__)
 
 
-def upload_delete(bucket_name, source_folder: Path, prediction_tifs_by_date_json: Path, google_creds_path):
+def upload_delete(
+    bucket_name: str,
+    source_folder: Path,
+    prediction_tifs_by_date_json: Path,
+    google_creds_path: Path,
+) -> None:
+    """Upload predicted tif files to Google Cloud Storage and delete them locally.
+    :param bucket_name: name of the Google Cloud Storage bucket to upload to
+    :param source_folder: local directory containing the predicted tif files to upload
+    :param prediction_tifs_by_date_json: local path to the JSON file containing prediction tif filenames by date
+    :param google_creds_path: local path to the Google Cloud service account credentials JSON file
+    """
     if not source_folder.is_dir():
         log.error(f"Source folder '{source_folder}' does not exist.")
         return
@@ -57,7 +69,7 @@ def upload_delete(bucket_name, source_folder: Path, prediction_tifs_by_date_json
         log.info("\n  ".join(["\n"] + [str(r) for r in blob_names]))
 
 
-def main(settings: MLSettings | None = None, dry_run: bool = False):
+def main(settings: MLSettings | None = None, dry_run: bool = False) -> None:
     if settings is None:
         settings = MLSettings(".env")
         logging.basicConfig(level=settings.log_level, format=settings.log_format)
@@ -77,4 +89,9 @@ def main(settings: MLSettings | None = None, dry_run: bool = False):
 
 if __name__ == "__main__":
     os.chdir(Path(__file__).resolve().parents[1])
-    main()
+    ap = argparse.ArgumentParser(
+        description="Upload predicted tif files to Google Cloud Storage and delete them locally."
+    )
+    ap.add_argument("--dry-run", action="store_true", help="Run the script without performing uploads or deletions.")
+    args = ap.parse_args()
+    main(dry_run=args.dry_run)

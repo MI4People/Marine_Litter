@@ -19,6 +19,9 @@ Install these like
 - Linux: `sudo apt install pipx && pipx install uv ruff`
 
 ### Quick Start
+Prerequisites: You need `c++`and `gdal-devel` + `gdal-config` with version number matching the gdal version in the `pyproject.toml` installed on your system.
+Simplest approach is to use system gdal (e.g., `sudo apt install -y python3-gdal` on Linux). See [https://gdal.org/en/stable/download.html] for more details on installing gdal.
+
 For development, Python should be used in a [venv](https://docs.python.org/3/library/venv.html).
 This is done by `uv` automatically into project root `.venv/`, when not called with `--active`.
 ```bash
@@ -44,7 +47,9 @@ but you might want to understand the repo structure and configurations first...
 ./resources/    - GIS configuration etc.
 ./scripts/      - to run for analysis
 ./secrets/      - (git-ignored) credentials
+./specs/        - feature specifications
 ./src/          - actual package code
+./testdata/     - small sample data for pytest
 ./tests/        - for pytest
 ./web_gee/      - frontend: JavaScript for Google Earth Engine
 ~~~
@@ -118,6 +123,51 @@ uv run scripts/run_all.py
 uv run --active scripts/run_all.py
 ```
 
+#### Viewing tiles ('scripts/vizualize_tile.py')
+For visual inspection of downloaded GeoTIFFs, this renders a band combination via `gdal_translate`
+and shows it in a resizable window. Pass a single '.tif', or a folder of them:
+```bash
+uv run scripts/vizualize_tile.py resources/download_images/
+```
+- `left` / `right` – previous / next file in the folder
+- `up` / `down` – previous / next band combination (true colour, false colour infrared, SWIR)
+- `q` or `escape` – quit
+
+Band combinations are defined in `COMBOS` at the top of the script, using band positions in the
+order that 'src/marine_litter/zip_processing.py' merges them (B11 and B12 end up on 10 and 11,
+B8A last on 12).
+
+It needs `opencv-python` from the `dev` group — the *headless* build has no window support — plus
+the X11 and OpenGL libraries it links against. The devcontainer image installs those already
+(see '.devcontainer/Dockerfile'), on another Linux machine call
+```bash
+sudo apt install -y libgl1 libglib2.0-0 libsm6 libxcb1 libxext6 libxkbcommon-x11-0 libxrender1
+```
+
+It also needs a **reachable display**. VS Code forwards the host's X socket into the devcontainer
+(it is listed in `REMOTE_CONTAINERS_SOCKETS`) and sets `DISPLAY`, but it does *not* forward the
+authorisation cookie for it. The host X server then refuses the connection, and Qt reacts to that
+by aborting the process. The script checks the display up front and reports this instead, the fix
+is to permit local clients from a terminal *on the host*:
+```bash
+xhost +local:
+```
+Should that not work for your host session, run the script on the host rather than in the container.
+
+#### Land masking ('src/marine_litter/landmask.py')
+Before prediction, land is masked in every tile, so marine litter is only detected on water
+(see the [**spec**](specs/landmask.md) for details and design decisions):
+- Once per run, the IHO Sea Areas around the AOI ('resources/features.geojson') are fetched from the
+  [Marine Regions](https://www.marineregions.org) WFS, and stored in `ML_LANDMASK_PATH`
+  ('resources/landmask.geojson', git-ignored). Without network, that local copy is used, and without both,
+  the run predicts unmasked with a warning.
+- Per tile, land pixels (sea areas grown inland by `ML_LANDMASK_BUFFER_M`, as the IHO coastline is coarse)
+  are filled with the median of the tile's water pixels, a water-like neutral value.
+  Tiles without water are skipped, and the prediction is set to 0 on land.
+- Switch it off with `ML_LANDMASK_ENABLED=false`.
+
+For visual checks on a single tile, see 'src/LandMask.ipynb' and 'src/landmask_validation.py'.
+
 
 ### CVE-2025-63396 (PyTorch Profiler Bug)
 - **Status**: CVSS 3.3 LOW - Not a security vulnerability
@@ -179,4 +229,5 @@ Report bugs or request features via project's **issues**: https://github.com/MI4
 - Fork the repository
 - Create a branch as written above under **Git**
 - Follow the coding and quality guidelines from above
+- Note your changes in the [**CHANGELOG.md**](CHANGELOG.md), and update the version in 'pyproject.toml'
 - Submit a pull request.

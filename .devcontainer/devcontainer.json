@@ -1,0 +1,51 @@
+{
+    "name": "Marine Litter Dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+        "ghcr.io/devcontainers/features/copilot-cli:1": {},
+        "ghcr.io/devcontainers/features/nvidia-cuda:3": {}
+    },
+    "hostRequirements": {
+        "gpu": "optional"
+    },
+    "remoteUser": "ubuntu",
+    "updateRemoteUserUID": true,
+    // Configuring the container with tools and environment variables
+    "postCreateCommand": "bash .devcontainer/setup_container.sh ${containerWorkspaceFolder}",
+    // Volumes get mounted as root, we need to adjust permissions after they are mounted.
+    "postStartCommand": "sudo chown -R ubuntu:ubuntu ${containerWorkspaceFolder} /home/ubuntu/.cache || true",
+    "mounts": [
+        // Persist uv & pip caches
+        "source=docker_uv_cache,target=/home/ubuntu/.cache/uv,type=volume",
+        "source=docker_pip_cache,target=/home/ubuntu/.cache/pip,type=volume",
+        // Persist the virtual environment to speed up subsequent container startups
+        "source=marine_litter_venv,target=${containerWorkspaceFolder}/.venv,type=volume"
+    ],
+    "containerEnv": {
+        "UV_LINK_MODE": "copy",
+        "UV_SYSTEM_PYTHON": "1"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+                "python.languageServer": "None",
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.formatOnSave": true
+                }
+            },
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff",
+                "tamasfe.even-better-toml",
+                "astral-sh.ty"
+            ]
+        }
+    }
+}
