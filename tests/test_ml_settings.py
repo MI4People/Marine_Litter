@@ -24,6 +24,7 @@ def test_settings_defaults() -> None:
         "dates_path": Path("resources/dates.json"),
         "geojson_path": Path("resources/features.geojson"),
         "input_path": Path("images/downloaded"),
+        "landmask_path": Path("resources/landmask.geojson"),
         "output_path": Path("images/predicted"),
         # Processing
         "bucket_name": "marinelitter_predicted",
@@ -31,6 +32,8 @@ def test_settings_defaults() -> None:
         "days_before": 2,
         "days_num": 1,
         "device": "cpu",
+        "landmask_buffer_m": 250,
+        "landmask_enabled": True,
         "order_workers": 3,
         "predict_workers": 1,
         "product_name": "sentinel-2-level-2a",

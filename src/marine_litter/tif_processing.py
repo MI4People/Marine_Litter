@@ -4,10 +4,13 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+import geopandas as gpd
 import torch
 from marinedebrisdetector.predictor import ScenePredictor
 from osgeo import gdal
 from osgeo.gdal import Dataset
+
+from marine_litter.landmask import NoWaterError, fill_land, water_mask, zero_land
 
 gdal.UseExceptions()
 
@@ -33,9 +36,18 @@ def load_model(cpu_or_cuda: str, checkpoint_path: Path | None) -> torch.nn.Modul
     return model
 
 
-def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> Path | None:
+def predict_litter(
+    tif_file: Path,
+    model: torch.nn.Module,
+    cpu_or_cuda: str,
+    sea_areas: gpd.GeoDataFrame | None = None,
+    buffer_m: float = 0,
+) -> Path | None:
     """Run marine litter prediction on a single file using a pre-loaded marinedebrisdetector model.
     Load `model` once per batch with `load_model()` and reuse it across calls, rather than reloading it per file.
+
+    With `sea_areas` (see `landmask.load_sea_areas()`), land is masked in `tif_file` (in place) before prediction,
+    and set to 0 in the prediction, see 'specs/landmask.md'.
 
     For GeoTIFF/COG format references see:
     - https://en.wikipedia.org/wiki/GeoTIFF
@@ -44,15 +56,28 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
     - https://element84.com/software-engineering/remote-sensing/cloud-optimized-geotiff-vs-the-meta-raster-format
 
     :returns: output filename if successful, else `None`.
+    :raises NoWaterError: if `tif_file` has no water pixel, it is skipped then.
     """
     log.info(f"Predict '{tif_file.name}' using {cpu_or_cuda.upper()}")
     temp_predicted = tif_file.parent / f"{tif_file.stem}_temp_predicted.tif"
     try:
+        water = None
+        if sea_areas is not None:
+            t_start = perf_counter()
+            water = water_mask(tif_file, sea_areas, buffer_m)
+            n_water = fill_land(tif_file, water) if water.any() else 0
+            log.info(f"  Land masking: {water.mean():.1%} water, {perf_counter() - t_start:.2f} seconds")
+            if n_water == 0:
+                log.info(f"  '{tif_file.name}': skipped, no water")
+                raise NoWaterError(tif_file.name)
+
         scene_predictor = ScenePredictor(device=cpu_or_cuda)
         t_start = perf_counter()
         scene_predictor.predict(model, str(tif_file), str(temp_predicted))
         t_end = perf_counter()
         log.info(f"  Prediction time: {t_end - t_start:.2f} seconds")
+        if water is not None:
+            zero_land(temp_predicted, water)
 
         result_cog_tif = tif_file.parent / f"{tif_file.stem}_prediction.tif"
         translated = gdal.Translate(
@@ -66,6 +91,8 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
         log.info(f"  '{tif_file.name}': success")
         return result_cog_tif
 
+    except NoWaterError:
+        raise
     except Exception:
         log.exception(f"Error processing {tif_file}")
         return None

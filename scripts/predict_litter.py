@@ -13,6 +13,7 @@ from pathlib import Path
 import torch
 from torch.cuda.random import device_count
 
+from marine_litter.landmask import NoWaterError, load_sea_areas
 from marine_litter.ml_settings import MLSettings
 from marine_litter.tif_processing import load_model, predict_litter
 from marine_litter.zip_processing import process_zip
@@ -156,12 +157,31 @@ def main(
     checkpoint_path = settings.checkpoints.expanduser() / settings.checkpoint_file if settings.checkpoint_file else None
     model = load_model(device, checkpoint_path)
 
+    sea_areas = None
+    if settings.landmask_enabled:
+        sea_areas = load_sea_areas(settings.geojson_path, settings.landmask_path)
+    else:
+        log.info("Land masking is disabled (ML_LANDMASK_ENABLED)")
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=settings.predict_workers) as executor:
-        futures = [executor.submit(predict_litter, tif_file, model, device) for tif_file in tif_files]
+        futures = [
+            executor.submit(predict_litter, tif_file, model, device, sea_areas, settings.landmask_buffer_m)
+            for tif_file in tif_files
+        ]
         show_progress(futures)
 
-    predicted_files = [f.result() for f in futures if f.result() is not None]
-    log.info(f"Successfully predicted {len(predicted_files)}/{len(tif_files)} files")
+    predicted_files: list[Path] = []
+    skipped = 0
+    for f in futures:
+        try:
+            if (predicted := f.result()) is not None:
+                predicted_files.append(predicted)
+        except NoWaterError:
+            skipped += 1
+    failed = len(tif_files) - len(predicted_files) - skipped
+    log.info(f"Successfully predicted {len(predicted_files)}/{len(tif_files)} files ({skipped} without water skipped)")
+    if failed:
+        log.warning(f"Failed to predict {failed}/{len(tif_files)} files")
 
     moved_files: list[Path] = move_predictions_to_output_path(input_path, output_path)
 

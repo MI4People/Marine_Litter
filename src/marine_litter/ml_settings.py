@@ -49,6 +49,9 @@ class MLSettings(BaseSettings):
     dates_path: Path = Field(default=Path("resources/dates.json"), description="Predicted dates JSON file")
     geojson_path: Path = Field(default=Path("resources/features.geojson"), description="Features to download from UP42")
     input_path: Path = Field(default=Path("images/downloaded"), description="Downloaded images folder (zip/tif files)")
+    landmask_path: Path = Field(
+        default=Path("resources/landmask.geojson"), description="Local copy of sea areas for land masking"
+    )
     output_path: Path = Field(default=Path("images/predicted"), description="Processed images folder (predictions)")
 
     # Processing
@@ -59,6 +62,8 @@ class MLSettings(BaseSettings):
     days_before: int = Field(default=2, ge=1, le=100, description="Search for images at date back from today")
     days_num: int = Field(default=1, ge=1, le=100, description="Number of days starting at date given by 'days_before'")
     device: Literal["cpu", "cuda"] = Field(default="cpu")
+    landmask_buffer_m: float = Field(default=250, ge=0, description="Grow sea areas inland [m] for land masking")
+    landmask_enabled: bool = Field(default=True, description="Mask land before prediction")
     order_workers: int = Field(default=3, ge=1, description="Number of parallel workers for ordering (download)")
     predict_workers: int = Field(default=1, ge=1, description="Number of parallel workers for prediction")
     product_name: str = Field(default=DFT_PRODUCT_NAME, description="See https://docs.up42.com/sdk/sdk-glossary")
@@ -76,6 +81,7 @@ class MLSettings(BaseSettings):
         "geojson_path",
         "google_creds_path",
         "input_path",
+        "landmask_path",
         "output_path",
         "up42_creds_path",
         mode="before",

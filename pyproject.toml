@@ -19,16 +19,20 @@ name = "marine-litter"
 readme = "README.md"
 # Python 3.12.3 is recommended in Docker to keep it simpler for GDAL and CUDA in Ubuntu 24.04 LTS.
 requires-python = ">=3.12.3,<3.14"
-version = "0.1.2"
+version = "0.2.0"
 
 dependencies = [
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
     # Linux/macOS: gdal is provided by the system, not uv/pip. Call `sudo apt install -y python3-gdal`,
     # then create venv with `uv venv --python 3.12 --system-site-packages` (Python version must match system gdal).
+    "geopandas",
     "google-cloud-storage",
     "marinedebrisdetector",      # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
+    "numpy",
     "pydantic-settings",
+    "rasterio",
+    "shapely",
     "torch==2.9.1+cu130",
     "torchvision==0.24.1+cu130",
     "up42-py>=3",
@@ -44,11 +48,15 @@ dev = [
     "mkdocs",
     "mkdocs-material",
     "mkdocs-mermaid2-plugin",
+    "opencv-python",          # window of 'scripts/vizualize_tile.py', do not swap for the headless build
     "pip-tools",              # for readthedocs, see 'docs/requirements.in'
     "pre-commit",
     "pytest-cov",
     "pytest-sugar",
     "ty",
+    "types-geopandas>=1.1.4.20260728",
+    "types-rasterio>=1.5.0.20260728",
+    "types-shapely>=2.1.0.20260728",
     "uv_build<1.0",
 ]
 
@@ -84,6 +92,7 @@ line-length = 120
 
 [tool.ruff.format]
 quote-style = "double"
+preview = true
 
 [tool.ruff.lint]
 # A     https://docs.astral.sh/ruff/rules/#flake8-builtins-a    # shadowing
