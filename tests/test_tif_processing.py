@@ -1,9 +1,12 @@
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
 import pytest
+import rasterio
 import torch
 
+from marine_litter.landmask import NoWaterError, water_mask
 from marine_litter.tif_processing import get_tiff_layout, load_model, predict_litter
 
 
@@ -48,3 +51,21 @@ def test_run_prediction_logs(caplog):
     result = predict_litter(Path("nonexistent.tif"), model, "cuda")
     assert result is None
     assert "Error processing" in caplog.text
+
+
+def test_predict_with_land_mask(combined_tif_copy: Path, sea_areas_with_island: gpd.GeoDataFrame) -> None:
+    model = load_model("cpu", None)
+    result_tif = predict_litter(combined_tif_copy, model, "cpu", sea_areas_with_island, 0)
+
+    assert result_tif
+    water = water_mask(combined_tif_copy, sea_areas_with_island, 0)
+    with rasterio.open(result_tif) as src:
+        prediction = src.read(1)
+    assert (prediction[~water] == 0).all()
+
+
+def test_predict_skips_tile_without_water(combined_tif_copy: Path, sea_areas: gpd.GeoDataFrame) -> None:
+    atlantic = gpd.GeoDataFrame(geometry=sea_areas.translate(xoff=-30))
+    with pytest.raises(NoWaterError):
+        predict_litter(combined_tif_copy, torch.nn.Identity(), "cpu", atlantic, 250)
+    assert not list(combined_tif_copy.parent.glob("*_prediction.tif"))

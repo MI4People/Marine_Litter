@@ -1,14 +1,42 @@
-import numpy as np
+from pathlib import Path
+
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
 import rasterio
 from shapely.geometry import box
 
-def inspect_fp(fp1):
+RGB = 3  # number of color channels
+
+
+def _normalize(arr: np.ndarray) -> np.ndarray:
+    """Normalize an array to [0, 1]."""
+    if arr.max() > arr.min():
+        return (arr - arr.min()) / (arr.max() - arr.min())
+    return arr
+
+
+def _false_color(data: np.ndarray) -> np.ndarray:
+    """Create a compound false color composite using all bands: band i is averaged into channel i % 3."""
+    n_bands, height, width = data.shape
+    if n_bands == RGB:
+        return np.dstack([_normalize(band) for band in data])
+    channels = np.zeros((RGB, height, width), dtype=np.float32)
+    counts = np.zeros(RGB)
+    for i, band in enumerate(data):
+        channels[i % RGB] += _normalize(band)
+        counts[i % RGB] += 1
+    for c in range(RGB):
+        if counts[c] > 0:
+            channels[c] /= counts[c]
+    return np.moveaxis(channels, 0, -1)
+
+
+def inspect_fp(fp1: Path) -> None:
     """
     Inspect a raster file and display its metadata and a false color composite.
     Parameters:
-        fp1 (str): Path to the raster file.
+        fp1: Path to the raster file.
     """
     with rasterio.open(fp1) as src:
         print("Number of bands:", src.count)
@@ -17,92 +45,49 @@ def inspect_fp(fp1):
         print("Transform:", src.transform)
         data = src.read()  # Reads all bands; shape: (bands, height, width)
         print("Data shape:", data.shape)
-        
-        # Helper function to normalize an array to [0, 1]
-        def normalize(arr):
-            if arr.max() > arr.min():
-                return (arr - arr.min()) / (arr.max() - arr.min())
-            return arr
-        
-        # Create a compound false color composite using all bands
-        def create_false_color(data):
-            n_bands, height, width = data.shape
-            if n_bands == 3:
-                # If exactly three bands, use them directly as RGB
-                r = normalize(data[0])
-                g = normalize(data[1])
-                b = normalize(data[2])
-                return np.dstack((r, g, b))
-            else:
-                # Cycle through bands and assign to R, G, B channels
-                R = np.zeros((height, width), dtype=np.float32)
-                G = np.zeros((height, width), dtype=np.float32)
-                B = np.zeros((height, width), dtype=np.float32)
-                count_R = count_G = count_B = 0
-                for i in range(n_bands):
-                    norm_band = normalize(data[i])
-                    if i % 3 == 0:
-                        R += norm_band
-                        count_R += 1
-                    elif i % 3 == 1:
-                        G += norm_band
-                        count_G += 1
-                    else:
-                        B += norm_band
-                        count_B += 1
-                if count_R > 0: R /= count_R
-                if count_G > 0: G /= count_G
-                if count_B > 0: B /= count_B
-                return np.dstack((R, G, B))
-        
-        # Build a list of images and corresponding titles for plotting
-        images = []
-        titles = []
-        
-        # Only add the false color composite if more than one band exists
-        if src.count > 1:
-            composite_false = create_false_color(data)
-            images.append(composite_false)
-            titles.append("Composite False Color")
-        
-        # Add the true color composite if at least three bands exist
-        if src.count >= 3:
-            true_r = normalize(data[0])
-            true_g = normalize(data[1])
-            true_b = normalize(data[2])
-            true_color = np.dstack((true_r, true_g, true_b))
-            images.append(true_color)
-            titles.append("True Color")
-        
-        # Add each individual band in grayscale
-        for i in range(src.count):
-            images.append(normalize(data[i]))
-            titles.append(f"Band {i+1}")
-        
-        total_images = len(images)
-        fig, axs = plt.subplots(1, total_images, figsize=(5 * total_images, 5))
-        if total_images == 1:
-            axs = [axs]  # Ensure axs is iterable
-        
-        for ax, img, title in zip(axs, images, titles):
-            # If image has three channels, display as is; otherwise use a grayscale colormap.
-            if img.ndim == 3 and img.shape[2] == 3:
-                ax.imshow(img)
-            else:
-                ax.imshow(img, cmap='gray')
-            ax.set_title(title)
-            ax.axis('off')
-        
-        plt.tight_layout()
-        plt.show()
 
-def plot_shp_and_raster_bounds(fp_shp, fp_tif):
+    # Build a list of images and corresponding titles for plotting
+    images = []
+    titles = []
+
+    # Only add the false color composite if more than one band exists
+    if len(data) > 1:
+        images.append(_false_color(data))
+        titles.append("Composite False Color")
+
+    # Add the true color composite if at least three bands exist
+    if len(data) >= RGB:
+        images.append(np.dstack([_normalize(band) for band in data[:RGB]]))
+        titles.append("True Color")
+
+    # Add each individual band in grayscale
+    for i, band in enumerate(data):
+        images.append(_normalize(band))
+        titles.append(f"Band {i + 1}")
+
+    total_images = len(images)
+    _, axs = plt.subplots(1, total_images, figsize=(5 * total_images, 5), squeeze=False)
+
+    for ax, img, title in zip(axs[0], images, titles, strict=True):
+        # If image has three channels, display as is; otherwise use a grayscale colormap.
+        if img.ndim == RGB and img.shape[2] == RGB:
+            ax.imshow(img)
+        else:
+            ax.imshow(img, cmap="gray")
+        ax.set_title(title)
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_shp_and_raster_bounds(fp_shp: Path, fp_tif: Path) -> None:
     """
     Plots a shapefile with a red rectangle representing the bounds of a GeoTIFF raster.
 
     Parameters:
-        fp_shp (str): Path to the shapefile.
-        fp_tif (str): Path to the raster (GeoTIFF) file.
+        fp_shp: Path to the shapefile.
+        fp_tif: Path to the raster (GeoTIFF) file.
     """
     # Read the shapefile
     gdf = gpd.read_file(fp_shp)
@@ -116,43 +101,45 @@ def plot_shp_and_raster_bounds(fp_shp, fp_tif):
     bbox = box(bounds.left, bounds.bottom, bounds.right, bounds.top)
 
     # Create a GeoDataFrame for the bounding box
-    bbox_gdf = gpd.GeoDataFrame({'geometry': [bbox]}, crs=raster_crs)
+    bbox_gdf = gpd.GeoDataFrame({"geometry": [bbox]}, crs=raster_crs)
 
     # Reproject the bounding box to the shapefile's CRS if needed
-    if gdf.crs != bbox_gdf.crs:
+    if gdf.crs is not None and gdf.crs != bbox_gdf.crs:
         bbox_gdf = bbox_gdf.to_crs(gdf.crs)
 
     # Create the plot
-    fig, ax = plt.subplots(figsize=(10, 10))
-    gdf.plot(ax=ax, facecolor='none', edgecolor='blue', linewidth=1)
-    bbox_gdf.boundary.plot(ax=ax, color='red', linewidth=2)
+    _, ax = plt.subplots(figsize=(10, 10))
+    # geopandas-stubs reject plain color names, though matplotlib accepts them
+    gdf.plot(ax=ax, facecolor="none", edgecolor="blue", linewidth=1)  # ty: ignore[invalid-argument-type]
+    bbox_gdf.boundary.plot(ax=ax, color="red", linewidth=2)  # ty: ignore[invalid-argument-type]
     ax.set_title("Shapefile (blue) with Raster Bounds (red)")
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
     plt.show()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # ------ Please change the paths to your local paths ------
     # Define file paths and buffer distance
     # Shapefiles can be downloaded from https://www.marineregions.org/gazetteer.php/gazetteer.php?p=details&id=1905
-    fp_shp = r'src/resources/download_images/iho.shp'
-    fp1 = r'src/resources/download_images/S2A_OPER_MSI_L2A_TL_2APS_20230130T142458_A039730_T33TWJ_N05.09.tif'
-    fp2 = fp1.replace(".tif", "_mask.tif")
-    fp3 = fp1.replace(".tif", "_SeaOnly.tif")
-    
+    fp_shp = Path("src/resources/download_images/iho.shp")
+    fp1 = Path("src/resources/download_images/S2A_OPER_MSI_L2A_TL_2APS_20230130T142458_A039730_T33TWJ_N05.09.tif")
+    fp2 = fp1.with_name(f"{fp1.stem}_mask.tif")
+    fp3 = fp1.with_name(f"{fp1.stem}_SeaOnly.tif")
+
     print("---------- Inspecting Shapefile ----------")
     plot_shp_and_raster_bounds(fp_shp, fp1)
-    plt.savefig('src/resources/download_images/test1.png', bbox_inches='tight')
+    plt.savefig("src/resources/download_images/test1.png", bbox_inches="tight")
     plt.close()
     print("---------- Inspecting Mask ----------")
     inspect_fp(fp2)
-    plt.savefig('src/resources/download_images/test2.png', bbox_inches='tight')
+    plt.savefig("src/resources/download_images/test2.png", bbox_inches="tight")
     plt.close()
     print("---------- Inspecting Original ----------")
     inspect_fp(fp1)
-    plt.savefig('src/resources/download_images/test3.png', bbox_inches='tight')
+    plt.savefig("src/resources/download_images/test3.png", bbox_inches="tight")
     plt.close()
     print("---------- Inspecting Sea Only ----------")
     inspect_fp(fp3)
-    plt.savefig('src/resources/download_images/test4.png', bbox_inches='tight')
+    plt.savefig("src/resources/download_images/test4.png", bbox_inches="tight")
     plt.close()

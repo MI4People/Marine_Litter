@@ -37,3 +37,4 @@ __pycache__/
 google_credentials.json
 up42_credentials.json
 download_images/
+resources/landmask.geojson
