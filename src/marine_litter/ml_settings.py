@@ -2,12 +2,18 @@
 
 import logging
 from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 DFT_PRODUCT_NAME = "sentinel-2-level-2a"
 log = logging.getLogger(__name__)
+
+
+def _strip_quotes(v: str) -> str:
+    """Strip shell quotes that pydantic-settings does not remove before validation."""
+    return v.strip("\"' \t")
 
 
 class MLSettings(BaseSettings):
@@ -33,7 +39,7 @@ class MLSettings(BaseSettings):
     up42_creds_path: Path = Field(default=Path("secrets/up42_credentials.json"), description="UP42 credentials")
 
     # Logging
-    log_level: str = Field(default="WARNING")
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(default="WARNING")
     log_format: str = Field(default="%(message)-100s |%(levelname).1s %(asctime)s %(filename)s:%(lineno)d")
 
     # Paths
@@ -47,13 +53,22 @@ class MLSettings(BaseSettings):
 
     # Processing
     bucket_name: str = Field(default="marinelitter_predicted", description="Google Cloud Storage bucket name")
-    clouds_perc_max: int = Field(default=50, description="Maximum cloud coverage [%] for images to download")
+    clouds_perc_max: int = Field(
+        default=50, ge=0, le=100, description="Maximum cloud coverage [%] for images to download"
+    )
     days_before: int = Field(default=2, ge=1, le=100, description="Search for images at date back from today")
     days_num: int = Field(default=1, ge=1, le=100, description="Number of days starting at date given by 'days_before'")
-    device: str = Field(default="cpu", description="Options: cpu|cuda")
-    order_workers: int = Field(default=3, description="Number of parallel workers for ordering (download)")
-    predict_workers: int = Field(default=1, description="Number of parallel workers for prediction")
+    device: Literal["cpu", "cuda"] = Field(default="cpu")
+    order_workers: int = Field(default=3, ge=1, description="Number of parallel workers for ordering (download)")
+    predict_workers: int = Field(default=1, ge=1, description="Number of parallel workers for prediction")
     product_name: str = Field(default=DFT_PRODUCT_NAME, description="See https://docs.up42.com/sdk/sdk-glossary")
+
+    @field_validator(
+        "bucket_name", "checkpoint_file", "device", "log_format", "log_level", "product_name", mode="before"
+    )
+    @classmethod
+    def strip_str_fields(cls, v: str) -> str:
+        return _strip_quotes(v) if isinstance(v, str) else v
 
     @field_validator(
         "checkpoints",
@@ -66,29 +81,25 @@ class MLSettings(BaseSettings):
         mode="before",
     )
     @classmethod
-    def expand_user_path(cls, v):
+    def expand_user_path(cls, v: str | Path) -> Path:
         """Expand ~ to user home directory for cross-platform compatibility (Windows/Linux)."""
         if isinstance(v, str):
-            return Path(v).expanduser()
-        else:
-            return v.expanduser()
+            return Path(_strip_quotes(v)).expanduser()
+        return v.expanduser()
 
-    def __init__(self, env_file: str | Path | None = None, **kwargs):
+    def __init__(self, env_file: str | Path | None = None, **kwargs: Any) -> None:  # noqa: ANN401
         if env_file and not Path(env_file).is_file():
             raise FileNotFoundError(str(env_file))
-        super().__init__(_env_prefix="ML_", _env_file=str(env_file), _env_file_encoding="utf-8", **kwargs)
-        # for robustness: remove possible quotes/spaces for all string fields
-        for field_name, field_info in self.model_fields.items():
-            if field_info.annotation is str:
-                setattr(self, field_name, getattr(self, field_name).strip("\"' \t"))
+        env_file_str = str(env_file) if env_file else None
+        super().__init__(_env_prefix="ML_", _env_file=env_file_str, _env_file_encoding="utf-8", **kwargs)
 
-    def as_tuples(self):
+    def as_tuples(self) -> list[tuple[str, Any, Any, str | None]]:
         return [
-            (k, v, type(self).model_fields[k].default, type(self).model_fields[k].description)
+            (k, v, MLSettings.model_fields[k].default, MLSettings.model_fields[k].description)
             for k, v in self.model_dump().items()
         ]
 
-    def as_table(self, default=False, description=False) -> str:
+    def as_table(self, default: bool = False, description: bool = False) -> str:
         """Return settings as vertically aligned table, skipping latter 2 column when set to `False`."""
         rows = [("Name", "Value", "Default", "Description"), *self.as_tuples()]
         cols = [0, 1] + ([2] if default else []) + ([3] if description else [])

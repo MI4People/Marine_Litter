@@ -1,5 +1,7 @@
 import shutil
 import zipfile
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -7,7 +9,7 @@ from marine_litter.tif_processing import get_tiff_layout
 from marine_litter.zip_processing import process_zip
 
 
-def test_process_zip(tmp_path, an_up42_zip):
+def test_process_zip(tmp_path: Path, an_up42_zip: Path) -> None:
     test_zip = tmp_path / "test.zip"
     shutil.copy(an_up42_zip, test_zip)
 
@@ -19,7 +21,7 @@ def test_process_zip(tmp_path, an_up42_zip):
     assert not (tmp_path / test_zip.stem).exists(), "Extract dir should be cleaned up"
     assert not any(f.suffix == ".vrt" for f in tmp_path.glob("*")), "VRT should be cleaned up"
 
-    info: dict = get_tiff_layout(combined_tif)
+    info: dict[str, Any] = get_tiff_layout(combined_tif)
     assert info["block_size"] == (1176, 1)
     assert info["raster_size"] == (1176, 1176)
     assert info["image_structure"] == {"INTERLEAVE": "PIXEL"}
@@ -28,7 +30,7 @@ def test_process_zip(tmp_path, an_up42_zip):
     assert info["is_tiled"] is False
 
 
-def test_process_zip_error_no_tif_files(tmp_path):
+def test_process_zip_error_no_tif_files(tmp_path: Path) -> None:
     test_zip = tmp_path / "test.zip"
     with zipfile.ZipFile(test_zip, "w") as zf:
         zf.writestr("metadata.xml", "<root></root>")
@@ -38,7 +40,7 @@ def test_process_zip_error_no_tif_files(tmp_path):
         process_zip(test_zip)
 
 
-def test_process_zip_error_no_metadata(tmp_path):
+def test_process_zip_error_no_metadata(tmp_path: Path) -> None:
     test_zip = tmp_path / "test.zip"
     with zipfile.ZipFile(test_zip, "w") as zf:
         zf.writestr("B01.tif", b"\x00" * 100)
@@ -47,7 +49,7 @@ def test_process_zip_error_no_metadata(tmp_path):
         process_zip(test_zip)
 
 
-def test_process_zip_error_tile_id(tmp_path):
+def test_process_zip_error_tile_id(tmp_path: Path) -> None:
     test_zip = tmp_path / "test.zip"
     with zipfile.ZipFile(test_zip, "w") as zf:
         zf.writestr("B01.tif", b"\x00" * 100)
