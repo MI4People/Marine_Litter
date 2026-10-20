@@ -52,6 +52,20 @@ def move_predictions_to_output_path(input_path: Path, output_path: Path) -> list
     return moved_files
 
 
+def cleanup_input_tifs(tif_files: list[Path]) -> None:
+    """Remove the processed input tif files, so they are not predicted and uploaded again on the next run.
+    :param tif_files: the extracted input tif files that have been passed to the prediction
+    """
+    removed = 0
+    for tif_file in tif_files:
+        try:
+            tif_file.unlink(missing_ok=True)
+            removed += 1
+        except Exception as e:
+            log.error(f"Failed to delete '{tif_file.name}': {e}")
+    log.info(f"Removed {removed}/{len(tif_files)} processed input tif file(s)")
+
+
 def cleanup_zip_files(input_path: Path) -> None:
     """Remove the zip files from the input directory.
     :param input_path: directory containing the zip files to be deleted
@@ -164,6 +178,8 @@ def main(
     log.info(f"Successfully predicted {len(predicted_files)}/{len(tif_files)} files")
 
     moved_files: list[Path] = move_predictions_to_output_path(input_path, output_path)
+
+    cleanup_input_tifs(tif_files)
 
     if delete_zip:
         cleanup_zip_files(input_path)
