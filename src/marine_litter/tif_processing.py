@@ -64,6 +64,16 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
             raise RuntimeError(f"gdal.Translate produced no dataset for '{result_cog_tif.name}'")
 
         log.info(f"  '{tif_file.name}': success")
+
+        # Remove the processed input file, so it is not predicted and uploaded again on the next run.
+        # NOTE: belongs in the caller (scripts/predict_litter.py), but that file is not mounted on the
+        # server, so it has to happen here. Remove once scripts/ is mounted or the image is rebuilt.
+        try:
+            tif_file.unlink(missing_ok=True)
+            log.info(f"  removed processed input '{tif_file.name}'")
+        except Exception as e:
+            log.error(f"  could not remove input '{tif_file.name}': {e}")
+
         return result_cog_tif
 
     except Exception:
