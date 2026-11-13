@@ -9,6 +9,8 @@ from marinedebrisdetector.predictor import ScenePredictor
 from osgeo import gdal
 from osgeo.gdal import Dataset
 
+from marine_litter import quarantine
+
 gdal.UseExceptions()
 
 log = logging.getLogger(__name__)
@@ -45,6 +47,9 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
 
     :returns: output filename if successful, else `None`.
     """
+    if not quarantine.check_and_mark(tif_file):
+        return None
+
     log.info(f"Predict '{tif_file.name}' using {cpu_or_cuda.upper()}")
     temp_predicted = tif_file.parent / f"{tif_file.stem}_temp_predicted.tif"
     try:
@@ -81,6 +86,7 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
         return None
     finally:
         temp_predicted.unlink(missing_ok=True)  # remove temporary file, even on failure
+        quarantine.clear_in_progress(tif_file)  # reached on success and on Python errors, not on a segfault
 
 
 def get_tiff_layout(tiff: Path) -> dict[str, Any]:
