@@ -1,31 +1,43 @@
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
-    # uv version.
-    rev: 0.11.14
+    rev: 0.13.9
     hooks:
       - id: uv-lock
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      # We need --unsafe to allow for the mkdocs !!python tags
-        args: [--unsafe]
       - id: check-added-large-files
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.12
-    hooks:
-      - id: ruff-check
-      - id: ruff-format
+      - id: check-case-conflict
+      - id: check-json
+        exclude: ^\.devcontainer/devcontainer\.json$
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+        # --unsafe to allow mkdocs !!python tags
+        args: [--unsafe]
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+      - id: trailing-whitespace
 
   - repo: local
     hooks:
+      - id: ruff-check
+        name: ruff-check
+        language: system
+        types: [python]
+        entry: uv run --active ruff check --fix
+      - id: ruff-format
+        name: ruff-format
+        language: system
+        types: [python]
+        entry: uv run --active ruff format
       - id: ty-check
         name: ty-check
-        language: python
+        language: system
         types: [python]
-        entry: uv run ty check
-        pass_filenames: true
+        entry: uv run --active ty check --output-format concise
+        pass_filenames: false
