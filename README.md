@@ -20,7 +20,8 @@ Install these like
 
 ### Quick Start
 Prerequisites: You need `c++`and `gdal-devel` + `gdal-config` with version number matching the gdal version in the `pyproject.toml` installed on your system.
-Simplest approach is to use system gdal (e.g., `sudo apt install -y python3-gdal` on Linux). See [https://gdal.org/en/stable/download.html] for more details on installing gdal.
+On Linux/macOS `uv sync` builds the gdal Python bindings from source against the system libgdal (e.g., `sudo apt install -y libgdal-dev g++ python3-dev` on Linux).
+Do not use the system `python3-gdal` via `--system-site-packages`: it is built against NumPy 1.x and fails with NumPy 2. See [https://gdal.org/en/stable/download.html] for more details on installing gdal.
 
 For development, Python should be used in a [venv](https://docs.python.org/3/library/venv.html).
 This is done by `uv` automatically into project root `.venv/`, when not called with `--active`.

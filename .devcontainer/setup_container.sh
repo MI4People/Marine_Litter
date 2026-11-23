@@ -8,8 +8,14 @@ sudo chown -R ubuntu:ubuntu /home/ubuntu/.cache
 sudo mkdir -p ${containerWorkspaceFolder}/.venv || true
 sudo chown -R ubuntu:ubuntu ${containerWorkspaceFolder}/.venv
 
-# The image contains the gdal libs in the system site packages, so we need to use the system site packages in the uv venv
-uv venv --system-site-packages --allow-existing
+# gdal is installed into the venv (built against NumPy 2), so the venv must NOT see the system site packages,
+# whose python3-gdal is built against NumPy 1.x. The persisted venv volume may still be an old venv created
+# with --system-site-packages; recreate it in that case.
+if grep -qs "include-system-site-packages = true" .venv/pyvenv.cfg; then
+    uv venv --clear
+else
+    uv venv --allow-existing
+fi
 
 # Globally install standard tooling
 uv tool install ruff

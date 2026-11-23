@@ -18,14 +18,20 @@ license-files = ["LICENSE.txt"]
 name = "marine-litter"
 readme = "README.md"
 # Python 3.12.3 is recommended in Docker to keep it simpler for GDAL and CUDA in Ubuntu 24.04 LTS.
-requires-python = ">=3.12.3,<3.14"
+# No tight upper bound on purpose. A new Python version additionally needs wheels of the pinned torch/torchvision
+# and, on Windows, an extra gdal wheel line below.
+requires-python = ">=3.12.3,<4"
 version = "0.2.0"
 
 dependencies = [
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
     "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
-    # Linux/macOS: gdal is provided by the system, not uv/pip. Call `sudo apt install -y python3-gdal`,
-    # then create venv with `uv venv --python 3.12 --system-site-packages` (Python version must match system gdal).
+    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp314-cp314-win_amd64.whl; python_version=='3.14' and sys_platform == 'win32'",
+    # Linux/macOS: the gdal Python bindings are built from source inside the venv (against NumPy 2), linking the
+    # system libgdal. The version MUST equal `gdal-config --version`, i.e. the GDAL base image tag in both Dockerfiles.
+    # Build needs the libgdal headers, a C++ compiler and the Python headers (e.g. `apt install libgdal-dev g++ python3-dev`).
+    # Do NOT create the venv with `--system-site-packages`: the system `python3-gdal` is built against NumPy 1.x.
+    "gdal==3.11.5; sys_platform != 'win32'",
     "geopandas",
     "google-cloud-storage",
     "marinedebrisdetector",      # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
