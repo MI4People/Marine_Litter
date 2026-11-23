@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator
-from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DFT_PRODUCT_NAME = "sentinel-2-level-2a"
 log = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class MLSettings(BaseSettings):
     # Sync '.env.example' and your private '.env' accordingly.
     # Like '.env' file: Do not commit credentials to version control!
 
-    model_config = ConfigDict(extra="forbid")  # disallow unknown fields
+    model_config = SettingsConfigDict(extra="forbid")  # disallow unknown fields
 
     # Authentication
     google_creds_path: Path = Field(default=Path("secrets/google_credentials.json"), description="Google credentials")
@@ -67,7 +67,7 @@ class MLSettings(BaseSettings):
         "bucket_name", "checkpoint_file", "device", "log_format", "log_level", "product_name", mode="before"
     )
     @classmethod
-    def strip_str_fields(cls, v: str) -> str:
+    def strip_str_fields(cls, v: object) -> object:
         return _strip_quotes(v) if isinstance(v, str) else v
 
     @field_validator(
@@ -88,9 +88,12 @@ class MLSettings(BaseSettings):
         return v.expanduser()
 
     def __init__(self, env_file: str | Path | None = None, **kwargs: Any) -> None:  # noqa: ANN401
-        if env_file and not Path(env_file).is_file():
-            raise FileNotFoundError(str(env_file))
-        env_file_str = str(env_file) if env_file else None
+        if env_file is None or env_file == "":
+            env_file_str = None
+        else:
+            env_file_str = str(env_file)
+            if not Path(env_file_str).is_file():
+                raise FileNotFoundError(env_file_str)
         super().__init__(_env_prefix="ML_", _env_file=env_file_str, _env_file_encoding="utf-8", **kwargs)
 
     def as_tuples(self) -> list[tuple[str, Any, Any, str | None]]:

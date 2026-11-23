@@ -3,6 +3,7 @@ services:
     image: marine_litter:devcontainer
     command: ["python", "scripts/run_all.py", "-l", "INFO"]
     restart: "no"
+    # noinspection ComposeUnknownKeys
     gpus: all
     volumes:
       - /home/workspace/marine_litter_project/Marine_Litter:/marine_litter:rw

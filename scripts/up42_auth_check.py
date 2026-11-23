@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import up42
 import up42.http.oauth
 
 credentials_file_path = Path(__file__).parent.parent / "secrets" / "up42_credentials.json"

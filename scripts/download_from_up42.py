@@ -35,6 +35,7 @@ from up42.glossary import Collection, CollectionSorting, CollectionType, Product
 from up42.order_template import BatchOrderTemplate, OrderError, OrderReference  # noqa: E402, I001
 
 DEFAULT_POLLING_TO = 60 * 60.0  # polling for order fulfillment timeout
+FAILED_ORDER_STATUSES = ("FAILED_PERMANENTLY", "PLACEMENT_FAILED", "CANCELED")
 
 
 @dataclass
@@ -106,7 +107,7 @@ def determine_product_info(product_name: str) -> ProductInfo | None:
             log.debug(f"{i:02}. {collection.title}")
             for dp in collection.data_products:
                 log.debug(f"    {dp.name}: {dp.id}")
-                if dp.name == product_name and dp.id:
+                if dp.name == product_name and dp.id is not None and dp.id != "":
                     # assert collection.title == 'Sentinel-2'
                     # assert collection.name == 'sentinel-2'
                     # assert dp.title == 'Level 2A'
@@ -127,14 +128,16 @@ def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
     if params.start_date != params.end_date:
         one_or_two_dates += f"...{params.end_date}"
     log.info(f"Searching for scenes of {one_or_two_dates}.")
-    scenes = list(
-        host.search(
+    scenes = list[Scene](
+        scene
+        for scene in host.search(
             collections=[params.collection_name],
             intersects=params.polygon,
             start_date=params.start_date,
             end_date=params.end_date,
             query={"cloudCoverage": {"LT": params.clouds_perc_max}},
         )
+        if isinstance(scene, Scene)
     )
     if not scenes:
         log.warning("...no scene found.")
@@ -142,7 +145,7 @@ def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
         scenes_by_date: dict[str, list[Scene]] = defaultdict(list)
         for i, scene in enumerate(scenes, 1):
             # not sure datetime is always set, but we need unique keys
-            s_date: str = scene.datetime[:10] if scene.datetime else f"? {i:8}"
+            s_date: str = scene.datetime[:10] if scene.datetime is not None and scene.datetime != "" else f"? {i:8}"
             scenes_by_date[s_date].append(scene)
 
         log_lines = [f"Found {len(scenes)} scene(s)."]
@@ -150,8 +153,10 @@ def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
             l_scenes = scenes_by_date[s_date]
             log_lines.append(f"  {s_date} ({len(l_scenes)}):")
             for i, scene in enumerate(sorted(l_scenes, key=lambda sc: sc.datetime or ""), 1):
-                time_str = scene.datetime[11:19] if scene.datetime else f"? {i:6}"
-                log_lines.append(f"    {time_str} '{scene.id}':{scene.cloud_coverage:5.1f}% clouds")
+                time_str = scene.datetime[11:19] if scene.datetime is not None and scene.datetime != "" else f"? {i:6}"
+                coverage = scene.cloud_coverage
+                coverage_str = f"{coverage:5.1f}%" if coverage is not None else "  N/A"
+                log_lines.append(f"    {time_str} '{scene.id}':{coverage_str} clouds")
         log.info("\n".join(log_lines))
     return scenes
 
@@ -162,17 +167,19 @@ def _download_single_order(download_dir: Path, order: Order) -> bool:
     :param order: fulfilled order to download assets for
     :returns: success
     """
-    client: pystac_client.Client = stac_client()
+    client = stac_client()
+    if not isinstance(client, pystac_client.Client):
+        raise TypeError(f"Expected pystac_client.Client, got {type(client).__name__}")
     items = client.search(filter={"op": "=", "args": [{"property": "order_id"}, order.id]})
     for item in items.items():
         collection = item.get_collection()
         if not collection:
             continue
         assets: ValuesView[Asset] = collection.assets.values()
-        order_asset = next((asset for asset in assets if asset.roles and "original" in asset.roles), None)
-        if order_asset:  # aka `original_delivery`
-            # `Asset.file` is added dynamically by up42.stac.extend() at import time, so ty can't see it.
-            downloaded_file_path = order_asset.file.download(output_directory=download_dir)  # ty: ignore[unresolved-attribute]
+        order_asset = next((asset for asset in assets if asset.roles is not None and "original" in asset.roles), None)
+        if order_asset is not None:  # aka `original_delivery`
+            # `Asset.file` is added dynamically by up42.stac.extend() at import time.
+            downloaded_file_path = order_asset.file.download(output_directory=download_dir)
             log.debug(f"Downloaded '{downloaded_file_path}' for order {order.id}.")
             return True
     log.error(f"Asset not found for order {order.id}.")
@@ -194,7 +201,7 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
     log_every_n_seconds = 120
     sleep_seconds = 6.0
     try:
-        while not order_local.is_fulfilled and order_local.status != "FAILED":
+        while not order_local.is_fulfilled and order_local.status not in FAILED_ORDER_STATUSES:
             await asyncio.sleep(sleep_seconds)
             order_local: Order = await asyncio.to_thread(Order.get, order_local.id)
             order_local.track()
@@ -212,7 +219,7 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
                 break
 
         duration = datetime.now() - start_time
-        if timed_out or order_local.status == "FAILED":
+        if timed_out or order_local.status in FAILED_ORDER_STATUSES:
             log.error(f"Order {order_local.id} failed after {duration}")
             return False
         log.info(f"Order {order_local.id} fulfilled after {duration}")
@@ -265,7 +272,7 @@ def place_orders(scenes: list[Scene], product_info: ProductInfo, features: Featu
         )
         got: list[OrderReference | OrderError] = order_template.place()
         if got and isinstance(got[0], OrderReference):
-            order: Order = got[0].order
+            order: Order = Order.get(got[0].id)
             log.info(f"   {i}: ✓ {order.id} for scene {scene.id}")
             order_tasks[scene.id] = order
         elif got and isinstance(got[0], OrderError):

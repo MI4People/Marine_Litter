@@ -15,12 +15,14 @@ def upload_delete(
     source_folder: Path,
     prediction_tifs_by_date_json: Path,
     google_creds_path: Path,
+    list_bucket_contents: bool = False,
 ) -> None:
     """Upload predicted tif files to Google Cloud Storage and delete them locally.
     :param bucket_name: name of the Google Cloud Storage bucket to upload to
     :param source_folder: local directory containing the predicted tif files to upload
     :param prediction_tifs_by_date_json: local path to the JSON file containing prediction tif filenames by date
     :param google_creds_path: local path to the Google Cloud service account credentials JSON file
+    :param list_bucket_contents: whether to log remote bucket contents after uploading
     """
     if not source_folder.is_dir():
         log.error(f"Source folder '{source_folder}' does not exist.")
@@ -62,11 +64,12 @@ def upload_delete(
     else:
         log.warning(f"Extra file '{prediction_tifs_by_date_json}' does not exist.")
 
-    if not "unclear why this is needed, and how to sort":
+    # unclear why this is needed, and how to sort
+    if list_bucket_contents:
         max_results = 100
         log.info(f"Server bucket contents (max. {max_results}):")
-        blob_names = sorted(b.name for b in bucket.list_blobs(max_results=max_results))
-        log.info("\n  ".join(["\n"] + [str(r) for r in blob_names]))
+        blob_names = sorted(b.name for b in bucket.list_blobs(max_results=max_results) if b.name is not None)
+        log.info("\n  ".join(["\n", *blob_names]))
 
 
 def main(settings: MLSettings | None = None, dry_run: bool = False) -> None:

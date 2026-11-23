@@ -57,7 +57,8 @@ def process_zip(zip_path: Path) -> Path:
         vrt_dataset = gdal.BuildVRT(str(vrt_filename), [str(f) for f in tif_files], options=vrt_options)
         if vrt_dataset is None:
             raise RuntimeError(f"gdal.BuildVRT produced no dataset for '{vrt_filename.name}'")
-        vrt_dataset = None  # flush/close before reading it back below
+
+        vrt_dataset.Close()
 
         # final data handling
         combined_tif = vrt_filename.with_suffix(".tif")

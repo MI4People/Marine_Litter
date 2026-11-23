@@ -19,7 +19,7 @@ def checkpoint_path(env_file: Path) -> Path:
     return settings.checkpoints / settings.checkpoint_file
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def combined_tif_from_up42_zip(testdata_root: Path) -> Generator[Path, None, None]:
     """:returns: a GeoTIFF, like needed as input for `marinedebrisdetector.predictor.ScenePredictor`"""
     combined_tif_zip = testdata_root / "up42_ordered_example_01_combined.tif.zip"
