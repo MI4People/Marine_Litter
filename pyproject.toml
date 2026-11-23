@@ -17,15 +17,12 @@ description = "Marine Litter Detection via Satellites"
 license-files = ["LICENSE.txt"]
 name = "marine-litter"
 readme = "README.md"
-# Python 3.12.3 is recommended in Docker to keep it simpler for GDAL and CUDA in Ubuntu 24.04 LTS.
-requires-python = ">=3.12.3,<3.14"
+# Docker's GDAL 3.13.3 base has system Python 3.14; the project uses Python 3.13.
+requires-python = "==3.13.*"
 version = "0.1.2"
 
 dependencies = [
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp312-cp312-win_amd64.whl; python_version=='3.12' and sys_platform == 'win32'",
-    "gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.10.25/gdal-3.11.4-cp313-cp313-win_amd64.whl; python_version=='3.13' and sys_platform == 'win32'",
-    # Linux/macOS: gdal is provided by the system, not uv/pip. Call `sudo apt install -y python3-gdal`,
-    # then create venv with `uv venv --python 3.12 --system-site-packages` (Python version must match system gdal).
+    "gdal-wheel==3.13.3; sys_platform == 'win32' or sys_platform == 'linux'",
     "google-cloud-storage",
     "marinedebrisdetector",      # ignore CVE-2025-63396 by torch 2.9.1, see also README.md
     "pydantic-settings",
@@ -34,22 +31,21 @@ dependencies = [
     "up42-py>=3",
 ]
 
-# Best install uv and ruff in addition to Python (globally, not in venv), e.g.
-#   - Windows: `winget install -e astral-sh.uv astral-sh.ruff`
-#   - macOS: `brew install uv ruff`
-#   - Linux: `pipx install uv ruff` (ensure pipx is available before)
-# isort and black will be done by ruff.
+# Install uv globally (manages Python and project tools via `uv sync`), e.g.
+#   - Windows: `winget install -e astral-sh.uv`
+#   - macOS: `brew install uv`
+#   - Linux: `pipx install uv` (ensure pipx is available before)
 [dependency-groups]
 dev = [
     "mkdocs",
     "mkdocs-material",
     "mkdocs-mermaid2-plugin",
     "pip-tools",              # for readthedocs, see 'docs/requirements.in'
-    "pre-commit",
+    "prek",
     "pytest-cov",
     "pytest-sugar",
+    "ruff",
     "ty",
-    "uv_build<1.0",
 ]
 
 [[tool.uv.index]]
@@ -67,10 +63,6 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = ["marine_litter"]
-
-[tool.black]
-line-length = 120
-skip-magic-trailing-comma = false
 
 [tool.ruff]
 # Preferably only specify non-default values (also in later sub-sections),
@@ -117,7 +109,6 @@ select = ["B", "E", "F", "I", "PERF", "PL", "ANN"]
 
 [tool.ty.rules]
 all = "error"
-
 
 [tool.pytest.ini_options]
 addopts = "--tb=short --cov=src --cov-report=term-missing"

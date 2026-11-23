@@ -1,6 +1,7 @@
 """See also
 - https://github.com/up42/up42-py/
 - https://docs.up42.com/sdk/quick-start
+- [SpatioTemporal Asset Catalog (STAC) specification](https://stacspec.org/)
 """
 
 import asyncio
@@ -20,6 +21,7 @@ import geojson
 import pystac_client
 from geojson import FeatureCollection
 from pystac import Asset
+from pystac import Collection as StacCollection
 
 from marine_litter.ml_settings import MLSettings
 
@@ -30,11 +32,12 @@ if "up42.version.version_control" not in sys.modules:
     log.info("Patching up42 to disable version check...")
     sys.modules["up42.version.version_control"] = MagicMock(check_package_version=MagicMock())
 
-from up42 import Order, authenticate, stac_client  # noqa: E402, I001
+from up42 import BulkDeletion, Order, authenticate, stac_client  # noqa: E402, I001
 from up42.glossary import Collection, CollectionSorting, CollectionType, ProductGlossary, Provider, Scene  # noqa: E402, I001
 from up42.order_template import BatchOrderTemplate, OrderError, OrderReference  # noqa: E402, I001
 
 DEFAULT_POLLING_TO = 60 * 60.0  # polling for order fulfillment timeout
+FAILED_ORDER_STATUSES = ("FAILED_PERMANENTLY", "PLACEMENT_FAILED", "CANCELED")
 
 
 @dataclass
@@ -106,7 +109,7 @@ def determine_product_info(product_name: str) -> ProductInfo | None:
             log.debug(f"{i:02}. {collection.title}")
             for dp in collection.data_products:
                 log.debug(f"    {dp.name}: {dp.id}")
-                if dp.name == product_name and dp.id:
+                if dp.name == product_name and dp.id is not None and dp.id != "":
                     # assert collection.title == 'Sentinel-2'
                     # assert collection.name == 'sentinel-2'
                     # assert dp.title == 'Level 2A'
@@ -127,14 +130,16 @@ def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
     if params.start_date != params.end_date:
         one_or_two_dates += f"...{params.end_date}"
     log.info(f"Searching for scenes of {one_or_two_dates}.")
-    scenes = list(
-        host.search(
+    scenes = list[Scene](
+        scene
+        for scene in host.search(
             collections=[params.collection_name],
             intersects=params.polygon,
             start_date=params.start_date,
             end_date=params.end_date,
             query={"cloudCoverage": {"LT": params.clouds_perc_max}},
         )
+        if isinstance(scene, Scene)
     )
     if not scenes:
         log.warning("...no scene found.")
@@ -142,7 +147,7 @@ def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
         scenes_by_date: dict[str, list[Scene]] = defaultdict(list)
         for i, scene in enumerate(scenes, 1):
             # not sure datetime is always set, but we need unique keys
-            s_date: str = scene.datetime[:10] if scene.datetime else f"? {i:8}"
+            s_date: str = scene.datetime[:10] if scene.datetime is not None and scene.datetime != "" else f"? {i:8}"
             scenes_by_date[s_date].append(scene)
 
         log_lines = [f"Found {len(scenes)} scene(s)."]
@@ -150,31 +155,55 @@ def determine_scenes(host: Provider, params: SceneSearchParams) -> list[Scene]:
             l_scenes = scenes_by_date[s_date]
             log_lines.append(f"  {s_date} ({len(l_scenes)}):")
             for i, scene in enumerate(sorted(l_scenes, key=lambda sc: sc.datetime or ""), 1):
-                time_str = scene.datetime[11:19] if scene.datetime else f"? {i:6}"
-                log_lines.append(f"    {time_str} '{scene.id}':{scene.cloud_coverage:5.1f}% clouds")
+                time_str = scene.datetime[11:19] if scene.datetime is not None and scene.datetime != "" else f"? {i:6}"
+                coverage = scene.cloud_coverage
+                coverage_str = f"{coverage:5.1f}%" if coverage is not None else "  N/A"
+                log_lines.append(f"    {time_str} '{scene.id}':{coverage_str} clouds")
         log.info("\n".join(log_lines))
     return scenes
 
 
+def _delete_stac_collection(collection: StacCollection, fallback_item_id: str, order_id: str) -> None:
+    """Delete a STAC collection from UP42 storage after its asset was downloaded locally."""
+    try:
+        item_ids = [col_item.id for col_item in collection.get_items()] or [fallback_item_id]
+        BulkDeletion(*item_ids).delete()
+        log.debug(f"Deleted UP42 STAC collection '{collection.id}' for order {order_id}.")
+    except Exception as e:
+        log.error(
+            f"Failed to delete UP42 STAC collection '{collection.id}' for order {order_id} "
+            f"(retry manually via DELETE /v2/assets/stac/collections/{collection.id}): {e}"
+        )
+
+
 def _download_single_order(download_dir: Path, order: Order) -> bool:
-    """Download assets for a single fulfilled order.
+    """Download assets for a single fulfilled order and delete the remote STAC collection afterwards.
     :param download_dir: directory to download assets to
     :param order: fulfilled order to download assets for
     :returns: success
     """
-    client: pystac_client.Client = stac_client()
+    client = stac_client()
+    if not isinstance(client, pystac_client.Client):
+        raise TypeError(f"Expected pystac_client.Client, got {type(client).__name__}")
     items = client.search(filter={"op": "=", "args": [{"property": "order_id"}, order.id]})
     for item in items.items():
         collection = item.get_collection()
         if not collection:
             continue
         assets: ValuesView[Asset] = collection.assets.values()
-        order_asset = next((asset for asset in assets if asset.roles and "original" in asset.roles), None)
-        if order_asset:  # aka `original_delivery`
-            # `Asset.file` is added dynamically by up42.stac.extend() at import time, so ty can't see it.
-            downloaded_file_path = order_asset.file.download(output_directory=download_dir)  # ty: ignore[unresolved-attribute]
+        order_asset = next((asset for asset in assets if asset.roles is not None and "original" in asset.roles), None)
+        if order_asset is not None:  # aka `original_delivery`
+            # `Asset.file` is added dynamically by up42.stac.extend() at import time.
+            downloaded_file_path = Path(order_asset.file.download(output_directory=download_dir))
             log.debug(f"Downloaded '{downloaded_file_path}' for order {order.id}.")
-            return True
+            if downloaded_file_path.is_file() and downloaded_file_path.stat().st_size > 0:
+                _delete_stac_collection(collection, item.id, order.id)
+                return True
+            log.error(
+                f"Downloaded file '{downloaded_file_path}' is missing or empty locally; "
+                f"keeping UP42 STAC collection '{collection.id}' for order {order.id}."
+            )
+            return False
     log.error(f"Asset not found for order {order.id}.")
     return False
 
@@ -190,11 +219,11 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
     order_local = order
     start_time = datetime.now()
     timed_out = False
-    log_counter = 0
+    log_counter = 0.0
     log_every_n_seconds = 120
     sleep_seconds = 6.0
     try:
-        while not order_local.is_fulfilled and order_local.status != "FAILED":
+        while not order_local.is_fulfilled and order_local.status not in FAILED_ORDER_STATUSES:
             await asyncio.sleep(sleep_seconds)
             order_local: Order = await asyncio.to_thread(Order.get, order_local.id)
             order_local.track()
@@ -205,22 +234,22 @@ async def _process_single_order(scene_id: str, order: Order, download_dir: Path,
                     f"Polling for order for {(datetime.now() - start_time).total_seconds():.0f} seconds... "
                     f"(scene {scene_id}, status: {order_local.status})"
                 )
-                log_counter = 0
+                log_counter = 0.0
             if (datetime.now() - start_time).total_seconds() > poll_timeout_secs:
                 timed_out = True
                 log.error(f"Polling for order {order_local.id} timed out after {poll_timeout_secs} seconds.")
                 break
 
         duration = datetime.now() - start_time
-        if timed_out or order_local.status == "FAILED":
+        if timed_out or order_local.status in FAILED_ORDER_STATUSES:
             log.error(f"Order {order_local.id} failed after {duration}")
             return False
         log.info(f"Order {order_local.id} fulfilled after {duration}")
 
         return _download_single_order(download_dir, order_local)
 
-    except Exception as e:
-        log.exception(f"Error processing order {order_local.id} for {scene_id}: {e}")
+    except Exception:
+        log.exception(f"Error processing order {order_local.id} for {scene_id}")
         return False
 
 
@@ -265,7 +294,7 @@ def place_orders(scenes: list[Scene], product_info: ProductInfo, features: Featu
         )
         got: list[OrderReference | OrderError] = order_template.place()
         if got and isinstance(got[0], OrderReference):
-            order: Order = got[0].order
+            order: Order = Order.get(got[0].id)
             log.info(f"   {i}: ✓ {order.id} for scene {scene.id}")
             order_tasks[scene.id] = order
         elif got and isinstance(got[0], OrderError):
@@ -337,11 +366,11 @@ if __name__ == "__main__":
     ap.add_argument("-t", "--tell-only", action="store_true", help="tell only scenes (images), do not order them")
     args: Namespace = ap.parse_args()
     env_file = ".env" if Path(".env").is_file() else None
-    settings = MLSettings(env_file)
-    settings.log_level = args.log
+    ml_settings = MLSettings(env_file)
+    ml_settings.log_level = args.log
 
-    logging.basicConfig(level=settings.log_level, format=settings.log_format)
+    logging.basicConfig(level=ml_settings.log_level, format=ml_settings.log_format)
 
-    log.info(f"Settings:\n{settings.as_table(description=args.dry_run)}")
+    log.info(f"Settings:\n{ml_settings.as_table(description=args.dry_run)}")
 
-    main(settings, args.dry_run, args.tell_only)
+    main(ml_settings, args.dry_run, args.tell_only)

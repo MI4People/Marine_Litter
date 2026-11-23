@@ -25,6 +25,8 @@ def load_model(cpu_or_cuda: str, checkpoint_path: Path | None) -> torch.nn.Modul
         checkpoint_path = None
 
     model = torch.hub.load("MarcCoru/marinedebrisdetector", "unetpp", verbose=True)
+    if not isinstance(model, torch.nn.Module):
+        raise TypeError(f"Expected torch.nn.Module, got {type(model).__name__}")
     if checkpoint_path:
         torch.serialization.add_safe_globals([argparse.Namespace])  # needed for `weights_only`
         state = torch.load(checkpoint_path, weights_only=True, map_location=cpu_or_cuda)
@@ -81,7 +83,7 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
 
         return result_cog_tif
 
-    except Exception:
+    except Exception:  # noqa
         log.exception(f"Error processing {tif_file}")
         return None
     finally:
@@ -90,8 +92,8 @@ def predict_litter(tif_file: Path, model: torch.nn.Module, cpu_or_cuda: str) -> 
 
 
 def get_tiff_layout(tiff: Path) -> dict[str, Any]:
-    ds: Dataset = gdal.Open(str(tiff))
-    if ds is None:
+    ds = gdal.Open(str(tiff))
+    if not isinstance(ds, Dataset):
         raise FileNotFoundError(f"gdal could not open '{tiff}' as a raster dataset")
     band = ds.GetRasterBand(1)
     bx, by = band.GetBlockSize()

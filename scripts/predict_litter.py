@@ -11,7 +11,8 @@ from concurrent.futures import Future
 from pathlib import Path
 
 import torch
-from torch.cuda.random import device_count
+from pydantic import TypeAdapter, ValidationError
+from torch.cuda.random import device_count  # noqa
 
 from marine_litter.ml_settings import MLSettings
 from marine_litter.tif_processing import load_model, predict_litter
@@ -85,11 +86,10 @@ def update_dates_json(dates_path: Path, predicted_files: list[Path]) -> None:
     """
     json_data: dict[str, list[str]] = {}
     if dates_path.exists():
-        with dates_path.open("r", encoding="utf-8") as json_file:
-            try:
-                json_data = json.load(json_file)
-            except json.JSONDecodeError:
-                log.warning(f"Could not load '{dates_path}'. Re-creating file.")
+        try:
+            json_data = TypeAdapter(dict[str, list[str]]).validate_json(dates_path.read_text(encoding="utf-8"))
+        except ValidationError:
+            log.warning(f"Could not load '{dates_path}'. Re-creating file.")
 
     new_dates = defaultdict(list)
     for json_key, json_values in json_data.items():

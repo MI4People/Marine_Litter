@@ -8,7 +8,7 @@ A Python project for detecting marine litter via satellite imagery using artific
 ## Development Setup
 
 ### Prerequisites
-- Python ≥3.11
+- Python 3.13 (managed by `uv`)
 - [`uv`](https://github.com/astral-sh/uv) package and project manager
 - [`ruff`](https://github.com/astral-sh/ruff) for formatting and linting,
   it also calls [isort](https://github.com/PyCQA/isort) and [black](https://github.com/psf/black).
@@ -19,8 +19,13 @@ Install these like
 - Linux: `sudo apt install pipx && pipx install uv ruff`
 
 ### Quick Start
-Prerequisites: You need `c++`and `gdal-devel` + `gdal-config` with version number matching the gdal version in the `pyproject.toml` installed on your system.
-Simplest approach is to use system gdal (e.g., `sudo apt install -y python3-gdal` on Linux). See [https://gdal.org/en/stable/download.html] for more details on installing gdal.
+Windows 11 and Linux development assume x86-64 (Intel/AMD); Linux also requires glibc 2.28 or newer.
+`uv sync` installs the prebuilt GDAL 3.13.3 wheel without compiling GDAL. Docker uses the same GDAL version.
+The wheel is third-party and is not an official GDAL distribution.
+On Ubuntu 24.04, `uv` can install Python 3.13 instead of using the system Python 3.12.
+
+On other Linux platforms, an alternative GDAL installation may require a C++ compiler, `gdal-config`,
+and GDAL development headers matching the native GDAL library.
 
 For development, Python should be used in a [venv](https://docs.python.org/3/library/venv.html).
 This is done by `uv` automatically into project root `.venv/`, when not called with `--active`.
@@ -78,18 +83,23 @@ We use a specific **branch naming convention** to maintain clarity (with date fo
 - `feature/<featurename>_<YYYYMMDD>`
 - `bugfix/<bugname>_<YYYYMMDD>`
 
-### Using `uv`, `ruff`, and `pytest` (Quality Checks)
+### Quality Checks: How to call `ruff`, `ty`, `pytest`, `prek`
 While developing, please regularly run the following commands.
+Git hooks in ['.pre-commit-config.yaml'](.pre-commit-config.yaml) are run via [`prek`](https://prek.j178.dev/).
 
 _Adapt parameters, like omitting `--active` when using local '.venv/',
 see [uv documentation](https://docs.astral.sh/uv/concepts/projects/sync) for details_
 
 Ensure all these are fine **_before_ committing** a change to git.
 ```bash
+# install git pre-commit hook once
+prek install
+
 # update dependencies (including `dev` ones), updates `uv.lock`
 uv sync --active --upgrade
 
-# check code and fix linting issues
+# run all configured hooks, or check code and fix linting issues directly
+prek run -a
 ty check --output-format concise
 ruff check --preview --fix --unsafe-fixes
 
