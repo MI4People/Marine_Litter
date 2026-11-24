@@ -29,3 +29,12 @@ temp/
 secrets.env
 *.ckpt
 marida/
+
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+google_credentials.json
+up42_credentials.json
+download_images/
+resources/landmask.geojson
